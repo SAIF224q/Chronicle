@@ -1,0 +1,6 @@
+.idea/
+
+chronicle_app/.dart_tool/
+chronicle_app/build/
+chronicle_app/.flutter-plugins
+chronicle_app/.flutter-plugins-dependencies

@@ -1,0 +1,165 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+import 'package:chronicle_app/src/application/services/entry_service.dart';
+import 'package:chronicle_app/src/storage/database/database_service.dart';
+import 'package:chronicle_app/src/storage/events/event_service.dart';
+import 'package:chronicle_app/src/storage/media/media_manager.dart';
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  group('EntryService', () {
+    late Directory tempDirectory;
+    late DatabaseService databaseService;
+    late EventService eventService;
+    late MediaManager mediaManager;
+    late EntryService entryService;
+
+    setUpAll(() {
+      sqfliteFfiInit();
+    });
+
+    setUp(() async {
+      tempDirectory = await Directory.systemTemp.createTemp('chronicle_entry_');
+      databaseService = DatabaseService(
+        documentsDirectoryProvider: () async => tempDirectory,
+        factory: databaseFactoryFfi,
+      );
+      await databaseService.initializeDatabase();
+      eventService = EventService(databaseService);
+      mediaManager = MediaManager(
+        documentsDirectoryProvider: () async => tempDirectory,
+      );
+      entryService = EntryService(
+        databaseService: databaseService,
+        eventService: eventService,
+        mediaManager: mediaManager,
+      );
+    });
+
+    tearDown(() async {
+      await databaseService.close();
+      if (await tempDirectory.exists()) {
+        await tempDirectory.delete(recursive: true);
+      }
+    });
+
+    test(
+      'createEntry writes entry and tag events and updates index tables',
+      () async {
+        final entry = await entryService.createEntry(
+          content: 'Interesting idea #startup #ai',
+        );
+
+        expect(entry.entryId, 1);
+        expect(entry.type, 'text');
+        expect(entry.mediaPath, isNull);
+        expect(entry.tags, <String>['startup', 'ai']);
+
+        final events = await databaseService.rawQuery('''
+        SELECT event_type, entry_id, payload, created_at
+        FROM events
+        ORDER BY id
+        ''');
+        expect(events, hasLength(3));
+        expect(events[0]['event_type'], 'EntryCreated');
+        expect(events[1]['event_type'], 'TagAdded');
+        expect(events[2]['event_type'], 'TagAdded');
+        expect(events.every((event) => event['entry_id'] == 1), isTrue);
+
+        final entryPayload =
+            jsonDecode(events[0]['payload']! as String) as Map<String, dynamic>;
+        expect(entryPayload['type'], 'text');
+        expect(entryPayload['content'], 'Interesting idea #startup #ai');
+        expect(entryPayload['media_path'], isNull);
+
+        final tagPayloads = events
+            .skip(1)
+            .map(
+              (event) =>
+                  jsonDecode(event['payload']! as String)
+                      as Map<String, dynamic>,
+            )
+            .map((payload) => payload['tag'])
+            .toList();
+        expect(tagPayloads, <String>['startup', 'ai']);
+
+        final entryIndexRows = await databaseService.rawQuery('''
+        SELECT entry_id, type, content, media_path, archived
+        FROM entry_index
+        ''');
+        expect(entryIndexRows, hasLength(1));
+        expect(entryIndexRows.single['entry_id'], 1);
+        expect(entryIndexRows.single['type'], 'text');
+        expect(
+          entryIndexRows.single['content'],
+          'Interesting idea #startup #ai',
+        );
+        expect(entryIndexRows.single['media_path'], isNull);
+        expect(entryIndexRows.single['archived'], 0);
+
+        final entryTagRows = await databaseService.rawQuery('''
+        SELECT entry_id, tag
+        FROM entry_tags
+        ORDER BY rowid
+        ''');
+        expect(entryTagRows, <Map<String, Object?>>[
+          <String, Object?>{'entry_id': 1, 'tag': 'startup'},
+          <String, Object?>{'entry_id': 1, 'tag': 'ai'},
+        ]);
+      },
+    );
+
+    test('createEntry saves image and stores relative media path', () async {
+      final sourceImage = File('${tempDirectory.path}/picked.jpg');
+      await sourceImage.writeAsBytes(<int>[1, 2, 3, 4]);
+
+      final entry = await entryService.createEntry(
+        content: 'Photo memory #travel',
+        image: sourceImage,
+      );
+
+      expect(entry.entryId, 1);
+      expect(entry.type, 'image');
+      expect(entry.mediaPath, startsWith('/media/images/'));
+      expect(entry.tags, <String>['travel']);
+
+      final savedImage = File(
+        '${tempDirectory.path}/chronicle${entry.mediaPath!.replaceAll('/', Platform.pathSeparator)}',
+      );
+      expect(await savedImage.exists(), isTrue);
+      expect(await savedImage.readAsBytes(), <int>[1, 2, 3, 4]);
+
+      final entryIndexRows = await databaseService.rawQuery('''
+        SELECT type, media_path
+        FROM entry_index
+        ''');
+      expect(entryIndexRows.single['type'], 'image');
+      expect(entryIndexRows.single['media_path'], entry.mediaPath);
+    });
+
+    test(
+      'createEntry uses incremental entry ids and unique lowercase tags',
+      () async {
+        await entryService.createEntry(content: 'First #AI #ai #Notes');
+        final secondEntry = await entryService.createEntry(content: 'Second');
+
+        expect(secondEntry.entryId, 2);
+
+        final entryTagRows = await databaseService.rawQuery('''
+        SELECT entry_id, tag
+        FROM entry_tags
+        ORDER BY rowid
+        ''');
+        expect(entryTagRows, <Map<String, Object?>>[
+          <String, Object?>{'entry_id': 1, 'tag': 'ai'},
+          <String, Object?>{'entry_id': 1, 'tag': 'notes'},
+        ]);
+      },
+    );
+  });
+}

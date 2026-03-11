@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "skills": {
+    "SQLite Database Expert": {
+      "source": "martinholovsky/claude-skills-generator",
+      "sourceType": "github",
+      "computedHash": "515e1971f145631025485c6dbf83c62bb7ee0fabc805d0e2bd07ac2aac7f24d8"
+    },
+    "flutter-architecture": {
+      "source": "flutter/skills",
+      "sourceType": "github",
+      "computedHash": "2f21e0f4930f805a45cc9abe403429aaf74d4e7b9e66fd4d7096283e43da5bde"
+    },
+    "flutter-developer": {
+      "source": "rimthan-lab/rimthan-plugins",
+      "sourceType": "github",
+      "computedHash": "9e38c09ad76c019c82ec117ed08386a5c2676819114712e99ca192af05730a15"
+    },
+    "flutter-layout": {
+      "source": "flutter/skills",
+      "sourceType": "github",
+      "computedHash": "437843244d7e7b3094e79663821786b35758e5aac7f2163ffcac63ec80837ad2"
+    }
+  }
+}

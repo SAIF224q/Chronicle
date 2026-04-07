@@ -5,10 +5,18 @@ import 'package:flutter/material.dart';
 import '../../application/services/timeline_service.dart';
 
 class TimelineItem extends StatelessWidget {
-  const TimelineItem({super.key, required this.entry, required this.onTagTap});
+  const TimelineItem({
+    super.key,
+    required this.entry,
+    required this.onTagTap,
+    required this.onEditTap,
+    required this.onImageTap,
+  });
 
   final TimelineEntry entry;
   final ValueChanged<String> onTagTap;
+  final VoidCallback onEditTap;
+  final ValueChanged<File> onImageTap;
 
   @override
   Widget build(BuildContext context) {
@@ -30,12 +38,30 @@ class TimelineItem extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Text(
-                  _formatTimestamp(entry.createdAt),
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Text(
+                        'Created: ${_formatTimestamp(entry.createdAt)}',
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(color: colorScheme.onSurfaceVariant),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: onEditTap,
+                      visualDensity: VisualDensity.compact,
+                      tooltip: 'Edit entry',
+                      icon: const Icon(Icons.edit_outlined),
+                    ),
+                  ],
                 ),
+                if (entry.updatedAt != null)
+                  Text(
+                    'Edited: ${_formatTimestamp(entry.updatedAt!)}',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                 if (entry.content.isNotEmpty) ...<Widget>[
                   const SizedBox(height: 8),
                   Text(
@@ -45,7 +71,7 @@ class TimelineItem extends StatelessWidget {
                 ],
                 if (entry.mediaFile != null) ...<Widget>[
                   const SizedBox(height: 12),
-                  _TimelineImage(file: entry.mediaFile!),
+                  _TimelineImage(file: entry.mediaFile!, onTap: onImageTap),
                 ],
                 if (entry.tags.isNotEmpty) ...<Widget>[
                   const SizedBox(height: 12),
@@ -83,23 +109,29 @@ class TimelineItem extends StatelessWidget {
 }
 
 class _TimelineImage extends StatelessWidget {
-  const _TimelineImage({required this.file});
+  const _TimelineImage({required this.file, required this.onTap});
 
   final File file;
+  final ValueChanged<File> onTap;
 
   @override
   Widget build(BuildContext context) {
+    final exists = file.existsSync();
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
       child: AspectRatio(
         aspectRatio: 4 / 3,
-        child: file.existsSync()
-            ? Image.file(
-                file,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return const _MissingMediaPlaceholder();
-                },
+        child: exists
+            ? InkWell(
+                onTap: () => onTap(file),
+                child: Image.file(
+                  file,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return const _MissingMediaPlaceholder();
+                  },
+                ),
               )
             : const _MissingMediaPlaceholder(),
       ),

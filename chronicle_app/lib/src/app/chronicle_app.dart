@@ -7,6 +7,7 @@ import '../storage/events/event_service.dart';
 import '../storage/media/media_manager.dart';
 import '../storage/query/timeline_query_service.dart';
 import '../ui/screens/timeline_screen.dart';
+import '../ui/theme/chronicle_theme.dart';
 
 class ChronicleApp extends StatelessWidget {
   ChronicleApp({
@@ -56,9 +57,7 @@ class ChronicleApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Chronicle',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF526D5B)),
-      ),
+      theme: ChronicleTheme.buildTheme(),
       home: TimelineScreen(
         timelineService: _services.timelineService,
         entryService: _services.entryService,

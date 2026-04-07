@@ -161,5 +161,64 @@ void main() {
         ]);
       },
     );
+
+    test('editEntry updates content, tags and edited timestamp', () async {
+      final created = await entryService.createEntry(
+        content: 'Old content #ideas #travel',
+      );
+
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+      final edited = await entryService.editEntry(
+        entryId: created.entryId,
+        content: 'Updated content #ideas #work',
+      );
+
+      expect(edited.entryId, created.entryId);
+      expect(edited.content, 'Updated content #ideas #work');
+      expect(edited.tags, <String>['ideas', 'work']);
+
+      final entryIndexRows = await databaseService.rawQuery(
+        '''
+        SELECT content, updated_at
+        FROM entry_index
+        WHERE entry_id = ?
+      ''',
+        <Object?>[created.entryId],
+      );
+      expect(entryIndexRows.single['content'], 'Updated content #ideas #work');
+      expect(entryIndexRows.single['updated_at'], isA<int>());
+
+      final entryTagRows = await databaseService.rawQuery(
+        '''
+        SELECT tag
+        FROM entry_tags
+        WHERE entry_id = ?
+        ORDER BY tag ASC
+      ''',
+        <Object?>[created.entryId],
+      );
+      expect(entryTagRows.map((row) => row['tag']).toList(), <Object?>[
+        'ideas',
+        'work',
+      ]);
+
+      final eventRows = await databaseService.rawQuery(
+        '''
+        SELECT event_type
+        FROM events
+        WHERE entry_id = ?
+        ORDER BY id ASC
+      ''',
+        <Object?>[created.entryId],
+      );
+      expect(eventRows.map((row) => row['event_type']).toList(), <Object?>[
+        'EntryCreated',
+        'TagAdded',
+        'TagAdded',
+        'EntryEdited',
+        'TagRemoved',
+        'TagAdded',
+      ]);
+    });
   });
 }

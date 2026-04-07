@@ -1,8 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../../application/services/entry_service.dart';
 import '../../application/services/timeline_service.dart';
 import 'create_entry_screen.dart';
+import 'edit_entry_screen.dart';
+import 'image_viewer_screen.dart';
 import '../widgets/timeline_item.dart';
 
 class TimelineScreen extends StatefulWidget {
@@ -62,6 +66,52 @@ class _TimelineScreenState extends State<TimelineScreen> {
     setState(() {
       _loadTimeline(tag: _activeTagFilter);
     });
+  }
+
+  Future<void> _openEditEntryScreen(TimelineEntry entry) async {
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (context) {
+          return EditEntryScreen(
+            entryService: widget.entryService,
+            entryId: entry.entryId,
+            initialContent: entry.content,
+          );
+        },
+      ),
+    );
+
+    if (!mounted || saved != true) {
+      return;
+    }
+
+    setState(() {
+      _loadTimeline(tag: _activeTagFilter);
+    });
+  }
+
+  Future<void> _openImageViewer(File file) async {
+    if (!await file.exists()) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Image file is unavailable.')),
+      );
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) {
+          return ImageViewerScreen(file: file);
+        },
+      ),
+    );
   }
 
   @override
@@ -134,6 +184,8 @@ class _TimelineScreenState extends State<TimelineScreen> {
                     return TimelineItem(
                       entry: entries[index],
                       onTagTap: _handleTagTap,
+                      onEditTap: () => _openEditEntryScreen(entries[index]),
+                      onImageTap: _openImageViewer,
                     );
                   },
                 ),

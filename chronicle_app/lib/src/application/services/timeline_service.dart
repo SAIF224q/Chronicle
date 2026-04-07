@@ -13,6 +13,7 @@ class TimelineEntry {
     required this.mediaPath,
     required this.mediaFile,
     required this.createdAt,
+    this.updatedAt,
     required this.tags,
   });
 
@@ -22,6 +23,7 @@ class TimelineEntry {
   final String? mediaPath;
   final File? mediaFile;
   final DateTime createdAt;
+  final DateTime? updatedAt;
   final List<String> tags;
 }
 
@@ -54,6 +56,9 @@ class TimelineService {
             createdAt: DateTime.fromMillisecondsSinceEpoch(
               row.createdAt * 1000,
             ),
+            updatedAt: row.updatedAt == null
+                ? null
+                : DateTime.fromMillisecondsSinceEpoch(row.updatedAt! * 1000),
             tags: List<String>.of(row.tags, growable: false),
           );
         })

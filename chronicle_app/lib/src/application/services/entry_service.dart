@@ -122,6 +122,127 @@ class EntryService {
     }
   }
 
+  Future<EntryRecord> editEntry({
+    required int entryId,
+    required String content,
+  }) async {
+    if (entryId <= 0) {
+      throw ArgumentError.value(
+        entryId,
+        'entryId',
+        'Entry ID must be positive.',
+      );
+    }
+
+    final editedAt = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+
+    return _databaseService.transaction((transaction) async {
+      final existingRows = await transaction.query(
+        ChronicleSchema.entryIndexTable,
+        columns: <String>[
+          'entry_id',
+          'type',
+          'content',
+          'media_path',
+          'created_at',
+        ],
+        where: 'entry_id = ?',
+        whereArgs: <Object?>[entryId],
+        limit: 1,
+      );
+
+      if (existingRows.isEmpty) {
+        throw StateError('Entry $entryId was not found.');
+      }
+
+      final existing = existingRows.single;
+      final type = existing['type']! as String;
+      final mediaPath = existing['media_path'] as String?;
+      final createdAt = existing['created_at']! as int;
+      final normalizedContent = content.trim();
+
+      if (type == 'text' && normalizedContent.isEmpty) {
+        throw ArgumentError('Text entries must include content after editing.');
+      }
+
+      await _eventService.writeEvent(
+        ChronicleEventDraft(
+          eventType: 'EntryEdited',
+          entryId: entryId,
+          payload: <String, Object?>{'content': normalizedContent},
+          createdAt: editedAt,
+        ),
+        executor: transaction,
+      );
+
+      await transaction.update(
+        ChronicleSchema.entryIndexTable,
+        <String, Object?>{'content': normalizedContent, 'updated_at': editedAt},
+        where: 'entry_id = ?',
+        whereArgs: <Object?>[entryId],
+      );
+
+      final existingTagRows = await transaction.query(
+        ChronicleSchema.entryTagsTable,
+        columns: <String>['tag'],
+        where: 'entry_id = ?',
+        whereArgs: <Object?>[entryId],
+      );
+      final existingTags = existingTagRows
+          .map((row) => row['tag']! as String)
+          .toSet();
+      final newTags = _extractTags(content).toSet();
+
+      final tagsToRemove = existingTags.difference(newTags).toList()..sort();
+      final tagsToAdd = newTags.difference(existingTags).toList()..sort();
+
+      for (final tag in tagsToRemove) {
+        await _eventService.writeEvent(
+          ChronicleEventDraft(
+            eventType: 'TagRemoved',
+            entryId: entryId,
+            payload: <String, Object?>{'tag': tag},
+            createdAt: editedAt,
+          ),
+          executor: transaction,
+        );
+
+        await transaction.delete(
+          ChronicleSchema.entryTagsTable,
+          where: 'entry_id = ? AND tag = ?',
+          whereArgs: <Object?>[entryId, tag],
+        );
+      }
+
+      for (final tag in tagsToAdd) {
+        await _eventService.writeEvent(
+          ChronicleEventDraft(
+            eventType: 'TagAdded',
+            entryId: entryId,
+            payload: <String, Object?>{'tag': tag},
+            createdAt: editedAt,
+          ),
+          executor: transaction,
+        );
+
+        await transaction.insert(
+          ChronicleSchema.entryTagsTable,
+          <String, Object?>{'entry_id': entryId, 'tag': tag},
+          conflictAlgorithm: ConflictAlgorithm.ignore,
+        );
+      }
+
+      return EntryRecord(
+        entryId: entryId,
+        type: type,
+        content: normalizedContent,
+        mediaPath: mediaPath,
+        tags: List<String>.of(newTags.toList()..sort(), growable: false),
+        createdAt: createdAt,
+      );
+    });
+  }
+
   Future<int> _generateEntryId(DatabaseExecutor executor) async {
     final rows = await executor.rawQuery('''
       SELECT COALESCE(MAX(entry_id), 0) + 1 AS next_entry_id

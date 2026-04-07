@@ -1,30 +1,32 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../../application/services/entry_service.dart';
 
-typedef ImageFilePicker = Future<File?> Function();
-
-class CreateEntryScreen extends StatefulWidget {
-  const CreateEntryScreen({
+class EditEntryScreen extends StatefulWidget {
+  const EditEntryScreen({
     super.key,
     required this.entryService,
-    this.pickImage,
+    required this.entryId,
+    required this.initialContent,
   });
 
   final EntryService entryService;
-  final ImageFilePicker? pickImage;
+  final int entryId;
+  final String initialContent;
 
   @override
-  State<CreateEntryScreen> createState() => _CreateEntryScreenState();
+  State<EditEntryScreen> createState() => _EditEntryScreenState();
 }
 
-class _CreateEntryScreenState extends State<CreateEntryScreen> {
-  final TextEditingController _contentController = TextEditingController();
-  File? _selectedImage;
+class _EditEntryScreenState extends State<EditEntryScreen> {
+  late final TextEditingController _contentController;
   bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _contentController = TextEditingController(text: widget.initialContent);
+  }
 
   @override
   void dispose() {
@@ -32,19 +34,7 @@ class _CreateEntryScreenState extends State<CreateEntryScreen> {
     super.dispose();
   }
 
-  Future<void> _attachImage() async {
-    final picker = widget.pickImage ?? _defaultPickImage;
-    final image = await picker();
-    if (!mounted || image == null) {
-      return;
-    }
-
-    setState(() {
-      _selectedImage = image;
-    });
-  }
-
-  Future<void> _saveEntry() async {
+  Future<void> _saveEdit() async {
     if (_isSaving) {
       return;
     }
@@ -54,9 +44,9 @@ class _CreateEntryScreenState extends State<CreateEntryScreen> {
     });
 
     try {
-      await widget.entryService.createEntry(
+      await widget.entryService.editEntry(
+        entryId: widget.entryId,
         content: _contentController.text,
-        image: _selectedImage,
       );
       if (!mounted) {
         return;
@@ -67,7 +57,7 @@ class _CreateEntryScreenState extends State<CreateEntryScreen> {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to save the entry right now.')),
+        const SnackBar(content: Text('Unable to save changes right now.')),
       );
     } finally {
       if (mounted) {
@@ -78,16 +68,6 @@ class _CreateEntryScreenState extends State<CreateEntryScreen> {
     }
   }
 
-  Future<File?> _defaultPickImage() async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-    if (pickedFile == null) {
-      return null;
-    }
-
-    return File(pickedFile.path);
-  }
-
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -96,11 +76,11 @@ class _CreateEntryScreenState extends State<CreateEntryScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Create Entry'),
+        title: const Text('Edit Entry'),
         actions: <Widget>[
           TextButton(
             style: TextButton.styleFrom(foregroundColor: appBarActionColor),
-            onPressed: _isSaving ? null : _saveEntry,
+            onPressed: _isSaving ? null : _saveEdit,
             child: _isSaving
                 ? SizedBox(
                     width: 18,
@@ -132,29 +112,9 @@ class _CreateEntryScreenState extends State<CreateEntryScreen> {
                 maxLines: 8,
                 minLines: 6,
                 decoration: const InputDecoration(
-                  hintText: 'Write a thought, memory, or note...',
+                  hintText: 'Update your entry...',
                   border: InputBorder.none,
                 ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          if (_selectedImage != null)
-            ClipRRect(
-              borderRadius: BorderRadius.circular(18),
-              child: AspectRatio(
-                aspectRatio: 4 / 3,
-                child: Image.file(_selectedImage!, fit: BoxFit.cover),
-              ),
-            ),
-          if (_selectedImage != null) const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: OutlinedButton.icon(
-              onPressed: _isSaving ? null : _attachImage,
-              icon: const Icon(Icons.image_outlined),
-              label: Text(
-                _selectedImage == null ? 'Attach Image' : 'Change Image',
               ),
             ),
           ),

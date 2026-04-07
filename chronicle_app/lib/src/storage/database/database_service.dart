@@ -37,6 +37,7 @@ class DatabaseService {
         version: ChronicleSchema.databaseVersion,
         onConfigure: _configureDatabase,
         onCreate: _createDatabase,
+        onUpgrade: _upgradeDatabase,
       ),
     );
 
@@ -108,5 +109,18 @@ class DatabaseService {
     }
 
     await batch.commit(noResult: true);
+  }
+
+  Future<void> _upgradeDatabase(
+    Database database,
+    int oldVersion,
+    int newVersion,
+  ) async {
+    if (oldVersion < 2) {
+      await database.execute(
+        'ALTER TABLE ${ChronicleSchema.entryIndexTable} '
+        'ADD COLUMN updated_at INTEGER',
+      );
+    }
   }
 }

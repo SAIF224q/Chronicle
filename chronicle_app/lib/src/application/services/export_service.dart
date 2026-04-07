@@ -81,7 +81,7 @@ class ExportService {
 
   Future<List<_ExportEntry>> _loadEntries() async {
     final entryRows = await _databaseService.rawQuery('''
-      SELECT entry_id, type, content, media_path, created_at
+      SELECT entry_id, type, content, media_path, created_at, updated_at
       FROM entry_index
       ORDER BY created_at ASC, entry_id ASC
       ''');
@@ -107,6 +107,7 @@ class ExportService {
             content: (row['content'] as String?) ?? '',
             mediaPath: row['media_path'] as String?,
             createdAt: row['created_at']! as int,
+            updatedAt: row['updated_at'] as int?,
             tags: List<String>.of(tagsByEntryId[entryId] ?? const <String>[]),
           );
         })
@@ -203,6 +204,7 @@ class _ExportEntry {
     required this.content,
     required this.mediaPath,
     required this.createdAt,
+    required this.updatedAt,
     required this.tags,
   });
 
@@ -211,6 +213,7 @@ class _ExportEntry {
   final String content;
   final String? mediaPath;
   final int createdAt;
+  final int? updatedAt;
   final List<String> tags;
 
   Map<String, Object?> toJson() {
@@ -220,6 +223,7 @@ class _ExportEntry {
       'content': content,
       'media_path': mediaPath,
       'created_at': createdAt,
+      'updated_at': updatedAt,
       'tags': tags,
     };
   }

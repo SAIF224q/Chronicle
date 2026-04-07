@@ -7,6 +7,7 @@ class TimelineEntryRow {
     required this.content,
     required this.mediaPath,
     required this.createdAt,
+    required this.updatedAt,
     required this.tags,
   });
 
@@ -15,6 +16,7 @@ class TimelineEntryRow {
   final String content;
   final String? mediaPath;
   final int createdAt;
+  final int? updatedAt;
   final List<String> tags;
 }
 
@@ -29,6 +31,7 @@ class TimelineQueryService {
         ? await _databaseService.rawQuery(
             '''
               SELECT entry_id, type, content, media_path, created_at
+                     , updated_at
               FROM entry_index
               WHERE archived = ?
               ORDER BY created_at DESC, entry_id DESC
@@ -38,7 +41,8 @@ class TimelineQueryService {
         : await _databaseService.rawQuery(
             '''
               SELECT entry_index.entry_id, entry_index.type, entry_index.content,
-                     entry_index.media_path, entry_index.created_at
+                     entry_index.media_path, entry_index.created_at,
+                     entry_index.updated_at
               FROM entry_index
               JOIN entry_tags
               ON entry_index.entry_id = entry_tags.entry_id
@@ -78,6 +82,7 @@ class TimelineQueryService {
             content: (row['content'] as String?) ?? '',
             mediaPath: row['media_path'] as String?,
             createdAt: row['created_at']! as int,
+            updatedAt: row['updated_at'] as int?,
             tags: List<String>.of(tagsByEntryId[entryId] ?? const <String>[]),
           );
         })

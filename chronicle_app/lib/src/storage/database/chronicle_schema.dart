@@ -2,7 +2,7 @@ class ChronicleSchema {
   const ChronicleSchema._();
 
   static const String databaseName = 'chronicle.db';
-  static const int databaseVersion = 1;
+  static const int databaseVersion = 2;
 
   static const String eventsTable = 'events';
   static const String entryIndexTable = 'entry_index';
@@ -27,6 +27,7 @@ class ChronicleSchema {
       content TEXT,
       media_path TEXT,
       created_at INTEGER NOT NULL,
+      updated_at INTEGER,
       archived INTEGER NOT NULL DEFAULT 0 CHECK (archived IN (0, 1))
     )
     ''',

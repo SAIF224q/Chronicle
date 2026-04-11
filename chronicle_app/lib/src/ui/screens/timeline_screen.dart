@@ -1,9 +1,12 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../application/services/entry_service.dart';
+import '../../application/services/export_service.dart';
 import '../../application/services/timeline_service.dart';
+import '../../storage/database/database_service.dart';
 import 'create_entry_screen.dart';
 import 'edit_entry_screen.dart';
 import 'image_viewer_screen.dart';
@@ -14,10 +17,12 @@ class TimelineScreen extends StatefulWidget {
     super.key,
     required this.timelineService,
     required this.entryService,
+    required this.databaseService,
   });
 
   final TimelineService timelineService;
   final EntryService entryService;
+  final DatabaseService databaseService;
 
   @override
   State<TimelineScreen> createState() => _TimelineScreenState();
@@ -26,6 +31,7 @@ class TimelineScreen extends StatefulWidget {
 class _TimelineScreenState extends State<TimelineScreen> {
   late Future<List<TimelineEntry>> _timelineFuture;
   String? _activeTagFilter;
+  bool _isExporting = false;
 
   @override
   void initState() {
@@ -114,10 +120,87 @@ class _TimelineScreenState extends State<TimelineScreen> {
     );
   }
 
+  Future<void> _exportData() async {
+    if (_isExporting) return;
+
+    setState(() {
+      _isExporting = true;
+    });
+
+    try {
+      final exportService = ExportService(
+        databaseService: widget.databaseService,
+      );
+
+      final result = await exportService.exportJournal();
+
+      if (!mounted) return;
+
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(result.archiveFile.path)],
+          text: 'Chronicle Journal Export',
+          sharePositionOrigin: const Rect.fromLTWH(0, 0, 1, 1),
+        ),
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Exported ${result.entryCount} entries with ${result.mediaFileCount} images',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to export: $e')));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isExporting = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Chronicle')),
+      appBar: AppBar(
+        title: const Text('Chronicle'),
+        actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            onSelected: (value) {
+              if (value == 'export') {
+                _exportData();
+              }
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem<String>(
+                value: 'export',
+                enabled: !_isExporting,
+                child: _isExporting
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Row(
+                        children: [
+                          Icon(Icons.download, size: 20),
+                          SizedBox(width: 12),
+                          Text('Export Data'),
+                        ],
+                      ),
+              ),
+            ],
+          ),
+        ],
+      ),
       body: FutureBuilder<List<TimelineEntry>>(
         future: _timelineFuture,
         builder: (context, snapshot) {

@@ -109,6 +109,11 @@ void main() {
       },
     );
 
+    final databaseService = DatabaseService(
+      documentsDirectoryProvider: () async => Directory.systemTemp,
+      factory: databaseFactoryFfi,
+    );
+
     await tester.pumpWidget(
       MaterialApp(
         home: TimelineScreen(
@@ -125,6 +130,7 @@ void main() {
               );
             },
           ),
+          databaseService: databaseService,
         ),
       ),
     );
@@ -184,11 +190,17 @@ void main() {
       },
     );
 
+    final testDatabaseService = DatabaseService(
+      documentsDirectoryProvider: () async => Directory.systemTemp,
+      factory: databaseFactoryFfi,
+    );
+
     await tester.pumpWidget(
       MaterialApp(
         home: TimelineScreen(
           timelineService: timelineService,
           entryService: entryService,
+          databaseService: testDatabaseService,
         ),
       ),
     );

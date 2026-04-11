@@ -13,18 +13,13 @@ import 'package:chronicle_app/src/storage/media/media_manager.dart';
 import 'package:chronicle_app/src/storage/query/timeline_query_service.dart';
 
 class _FakeTimelineService extends TimelineService {
-  _FakeTimelineService()
-    : super(
-        timelineQueryService: TimelineQueryService(
-          DatabaseService(
-            documentsDirectoryProvider: () async => Directory.systemTemp,
-            factory: databaseFactoryFfi,
-          ),
-        ),
-        mediaManager: MediaManager(
-          documentsDirectoryProvider: () async => Directory.systemTemp,
-        ),
-      );
+  _FakeTimelineService({
+    required TimelineQueryService timelineQueryService,
+    required MediaManager mediaManager,
+  }) : super(
+         timelineQueryService: timelineQueryService,
+         mediaManager: mediaManager,
+       );
 
   @override
   Future<List<TimelineEntry>> loadTimelineEntries({String? tag}) async {
@@ -33,22 +28,15 @@ class _FakeTimelineService extends TimelineService {
 }
 
 class _FakeEntryService extends EntryService {
-  _FakeEntryService()
-    : super(
-        databaseService: DatabaseService(
-          documentsDirectoryProvider: () async => Directory.systemTemp,
-          factory: databaseFactoryFfi,
-        ),
-        eventService: EventService(
-          DatabaseService(
-            documentsDirectoryProvider: () async => Directory.systemTemp,
-            factory: databaseFactoryFfi,
-          ),
-        ),
-        mediaManager: MediaManager(
-          documentsDirectoryProvider: () async => Directory.systemTemp,
-        ),
-      );
+  _FakeEntryService({
+    required DatabaseService databaseService,
+    required EventService eventService,
+    required MediaManager mediaManager,
+  }) : super(
+         databaseService: databaseService,
+         eventService: eventService,
+         mediaManager: mediaManager,
+       );
 }
 
 void main() {
@@ -56,10 +44,27 @@ void main() {
 
   testWidgets('renders Chronicle shell', (WidgetTester tester) async {
     sqfliteFfiInit();
+    final testDbService = DatabaseService(
+      documentsDirectoryProvider: () async => Directory.systemTemp,
+      factory: databaseFactoryFfi,
+    );
+    final timelineQueryService = TimelineQueryService(testDbService);
+    final mediaManager = MediaManager(
+      documentsDirectoryProvider: () async => Directory.systemTemp,
+    );
+
     await tester.pumpWidget(
       ChronicleApp(
-        timelineService: _FakeTimelineService(),
-        entryService: _FakeEntryService(),
+        timelineService: _FakeTimelineService(
+          timelineQueryService: timelineQueryService,
+          mediaManager: mediaManager,
+        ),
+        entryService: _FakeEntryService(
+          databaseService: testDbService,
+          eventService: EventService(testDbService),
+          mediaManager: mediaManager,
+        ),
+        databaseService: testDbService,
       ),
     );
     await tester.pump();

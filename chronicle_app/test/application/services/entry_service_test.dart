@@ -220,5 +220,36 @@ void main() {
         'TagAdded',
       ]);
     });
+
+    test('hideEntry hides message in place and records event', () async {
+      final created = await entryService.createEntry(content: 'Secret note');
+
+      await entryService.hideEntry(entryId: created.entryId);
+
+      final entryIndexRows = await databaseService.rawQuery(
+        '''
+        SELECT hidden, content
+        FROM entry_index
+        WHERE entry_id = ?
+      ''',
+        <Object?>[created.entryId],
+      );
+      expect(entryIndexRows.single['hidden'], 1);
+      expect(entryIndexRows.single['content'], 'Secret note');
+
+      final eventRows = await databaseService.rawQuery(
+        '''
+        SELECT event_type
+        FROM events
+        WHERE entry_id = ?
+        ORDER BY id ASC
+      ''',
+        <Object?>[created.entryId],
+      );
+      expect(eventRows.map((row) => row['event_type']).toList(), <Object?>[
+        'EntryCreated',
+        'EntryHidden',
+      ]);
+    });
   });
 }

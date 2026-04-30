@@ -130,5 +130,33 @@ void main() {
         expect(tagCountAfter, tagCountBefore);
       },
     );
+
+    test('exportJournal redacts hidden entries', () async {
+      final hiddenEntry = await entryService.createEntry(
+        content: 'Private exported note #secret',
+      );
+      await entryService.hideEntry(entryId: hiddenEntry.entryId);
+
+      final result = await exportService.exportJournal();
+      final archive = ZipDecoder().decodeBytes(
+        await result.archiveFile.readAsBytes(),
+      );
+      final entriesJsonFile = archive.files.firstWhere(
+        (file) => file.name == 'entries.json',
+      );
+      final entriesJson =
+          jsonDecode(utf8.decode(entriesJsonFile.content))
+              as Map<String, dynamic>;
+      final entries = entriesJson['entries'] as List<dynamic>;
+
+      expect(entries.single['hidden'], isTrue);
+      expect(entries.single['content'], 'Message deleted');
+      expect(entries.single['media_path'], isNull);
+      expect(entries.single['tags'], isEmpty);
+      expect(
+        jsonEncode(entriesJson),
+        isNot(contains('Private exported note #secret')),
+      );
+    });
   });
 }

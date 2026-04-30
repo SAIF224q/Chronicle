@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'package:chronicle_app/src/application/services/entry_service.dart';
+import 'package:chronicle_app/src/application/services/settings_service.dart';
 import 'package:chronicle_app/src/application/services/timeline_service.dart';
 import 'package:chronicle_app/src/storage/database/database_service.dart';
 import 'package:chronicle_app/src/storage/events/event_service.dart';
@@ -67,6 +68,24 @@ class _RecordingEntryService extends EntryService {
   }
 }
 
+class _FakeSettingsService extends SettingsService {
+  _FakeSettingsService()
+    : super(
+        DatabaseService(
+          documentsDirectoryProvider: () async => Directory.systemTemp,
+          factory: databaseFactoryFfi,
+        ),
+      );
+
+  @override
+  Future<bool> hasHiddenMessagePassword() async => true;
+
+  @override
+  Future<bool> verifyHiddenMessagePassword(String password) async {
+    return password == 'secret';
+  }
+}
+
 void main() {
   sqfliteFfiInit();
 
@@ -83,6 +102,7 @@ void main() {
             mediaPath: null,
             mediaFile: null,
             createdAt: DateTime(2026, 3, 11, 10, 30),
+            isHidden: false,
             tags: const <String>['ideas'],
           ),
           TimelineEntry(
@@ -92,6 +112,7 @@ void main() {
             mediaPath: null,
             mediaFile: null,
             createdAt: DateTime(2026, 3, 11, 9, 0),
+            isHidden: false,
             tags: const <String>['travel'],
           ),
         ],
@@ -103,6 +124,7 @@ void main() {
             mediaPath: null,
             mediaFile: null,
             createdAt: DateTime(2026, 3, 11, 10, 30),
+            isHidden: false,
             tags: const <String>['ideas'],
           ),
         ],
@@ -130,6 +152,7 @@ void main() {
               );
             },
           ),
+          settingsService: _FakeSettingsService(),
           databaseService: databaseService,
         ),
       ),
@@ -175,6 +198,7 @@ void main() {
             mediaPath: null,
             mediaFile: null,
             createdAt: DateTime(2026, 3, 11, 12, 0),
+            isHidden: false,
             tags: const <String>[],
           ),
         ];
@@ -200,6 +224,7 @@ void main() {
         home: TimelineScreen(
           timelineService: timelineService,
           entryService: entryService,
+          settingsService: _FakeSettingsService(),
           databaseService: testDatabaseService,
         ),
       ),
@@ -222,5 +247,64 @@ void main() {
     expect(entryService.createdContents, <String>['Fresh Chronicle note']);
     expect(find.text('Fresh Chronicle note'), findsOneWidget);
     expect(timelineService.requestedTags, <String?>[null, null]);
+  });
+
+  testWidgets('hidden entries show placeholder and reveal with password', (
+    WidgetTester tester,
+  ) async {
+    final timelineService = _RecordingTimelineService(
+      <String?, List<TimelineEntry>>{
+        null: <TimelineEntry>[
+          TimelineEntry(
+            entryId: 7,
+            type: 'text',
+            content: 'Private note',
+            mediaPath: null,
+            mediaFile: null,
+            createdAt: DateTime(2026, 3, 11, 12, 0),
+            isHidden: true,
+            tags: const <String>['private'],
+          ),
+        ],
+      },
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TimelineScreen(
+          timelineService: timelineService,
+          entryService: _RecordingEntryService(
+            onCreate: (content, image) async {
+              return EntryRecord(
+                entryId: 99,
+                type: 'text',
+                content: content,
+                mediaPath: null,
+                tags: const <String>[],
+                createdAt: 0,
+              );
+            },
+          ),
+          settingsService: _FakeSettingsService(),
+          databaseService: DatabaseService(
+            documentsDirectoryProvider: () async => Directory.systemTemp,
+            factory: databaseFactoryFfi,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Message deleted'), findsOneWidget);
+    expect(find.text('Private note'), findsNothing);
+
+    await tester.tap(find.text('Message deleted'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'secret');
+    await tester.tap(find.text('Reveal'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Private note'), findsOneWidget);
+    expect(find.text('#private'), findsOneWidget);
   });
 }

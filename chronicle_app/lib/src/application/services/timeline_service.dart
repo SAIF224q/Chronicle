@@ -14,6 +14,7 @@ class TimelineEntry {
     required this.mediaFile,
     required this.createdAt,
     this.updatedAt,
+    required this.isHidden,
     required this.tags,
   });
 
@@ -24,6 +25,7 @@ class TimelineEntry {
   final File? mediaFile;
   final DateTime createdAt;
   final DateTime? updatedAt;
+  final bool isHidden;
   final List<String> tags;
 }
 
@@ -59,6 +61,7 @@ class TimelineService {
             updatedAt: row.updatedAt == null
                 ? null
                 : DateTime.fromMillisecondsSinceEpoch(row.updatedAt! * 1000),
+            isHidden: row.isHidden,
             tags: List<String>.of(row.tags, growable: false),
           );
         })

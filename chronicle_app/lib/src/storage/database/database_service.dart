@@ -122,5 +122,17 @@ class DatabaseService {
         'ADD COLUMN updated_at INTEGER',
       );
     }
+    if (oldVersion < 3) {
+      await database.execute(
+        'ALTER TABLE ${ChronicleSchema.entryIndexTable} '
+        'ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0 CHECK (hidden IN (0, 1))',
+      );
+      await database.execute('''
+        CREATE TABLE IF NOT EXISTS ${ChronicleSchema.appSettingsTable} (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL
+        )
+      ''');
+    }
   }
 }

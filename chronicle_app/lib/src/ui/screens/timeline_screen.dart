@@ -5,11 +5,13 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../application/services/entry_service.dart';
 import '../../application/services/export_service.dart';
+import '../../application/services/settings_service.dart';
 import '../../application/services/timeline_service.dart';
 import '../../storage/database/database_service.dart';
 import 'create_entry_screen.dart';
 import 'edit_entry_screen.dart';
 import 'image_viewer_screen.dart';
+import 'settings_screen.dart';
 import '../widgets/timeline_item.dart';
 
 class TimelineScreen extends StatefulWidget {
@@ -17,11 +19,13 @@ class TimelineScreen extends StatefulWidget {
     super.key,
     required this.timelineService,
     required this.entryService,
+    required this.settingsService,
     required this.databaseService,
   });
 
   final TimelineService timelineService;
   final EntryService entryService;
+  final SettingsService settingsService;
   final DatabaseService databaseService;
 
   @override
@@ -31,6 +35,7 @@ class TimelineScreen extends StatefulWidget {
 class _TimelineScreenState extends State<TimelineScreen> {
   late Future<List<TimelineEntry>> _timelineFuture;
   String? _activeTagFilter;
+  final Set<int> _revealedEntryIds = <int>{};
   bool _isExporting = false;
 
   @override
@@ -93,6 +98,127 @@ class _TimelineScreenState extends State<TimelineScreen> {
 
     setState(() {
       _loadTimeline(tag: _activeTagFilter);
+    });
+  }
+
+  Future<void> _openSettingsScreen() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) {
+          return SettingsScreen(settingsService: widget.settingsService);
+        },
+      ),
+    );
+  }
+
+  Future<void> _hideEntry(TimelineEntry entry) async {
+    final hasPassword = await widget.settingsService.hasHiddenMessagePassword();
+    if (!mounted) {
+      return;
+    }
+
+    if (!hasPassword) {
+      final openSettings = await showDialog<bool>(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: const Text('Set a reveal password'),
+            content: const Text(
+              'Hidden messages need a password before they can be revealed.',
+            ),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('Open Settings'),
+              ),
+            ],
+          );
+        },
+      );
+
+      if (openSettings == true && mounted) {
+        await _openSettingsScreen();
+      }
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Delete message?'),
+          content: const Text(
+            'The message will be hidden in place and can be revealed with the owner password.',
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Hide Message'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) {
+      return;
+    }
+
+    try {
+      await widget.entryService.hideEntry(entryId: entry.entryId);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _revealedEntryIds.remove(entry.entryId);
+        _loadTimeline(tag: _activeTagFilter);
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to hide the message right now.')),
+      );
+    }
+  }
+
+  Future<void> _revealEntry(TimelineEntry entry) async {
+    final password = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return const _RevealPasswordDialog();
+      },
+    );
+
+    if (password == null) {
+      return;
+    }
+
+    final isValid = await widget.settingsService.verifyHiddenMessagePassword(
+      password,
+    );
+    if (!mounted) {
+      return;
+    }
+
+    if (!isValid) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Incorrect password.')));
+      return;
+    }
+
+    setState(() {
+      _revealedEntryIds.add(entry.entryId);
     });
   }
 
@@ -177,9 +303,21 @@ class _TimelineScreenState extends State<TimelineScreen> {
             onSelected: (value) {
               if (value == 'export') {
                 _exportData();
+              } else if (value == 'settings') {
+                _openSettingsScreen();
               }
             },
             itemBuilder: (context) => [
+              const PopupMenuItem<String>(
+                value: 'settings',
+                child: Row(
+                  children: [
+                    Icon(Icons.settings_outlined, size: 20),
+                    SizedBox(width: 12),
+                    Text('Settings'),
+                  ],
+                ),
+              ),
               PopupMenuItem<String>(
                 value: 'export',
                 enabled: !_isExporting,
@@ -266,8 +404,14 @@ class _TimelineScreenState extends State<TimelineScreen> {
                   itemBuilder: (context, index) {
                     return TimelineItem(
                       entry: entries[index],
+                      isRevealed: _revealedEntryIds.contains(
+                        entries[index].entryId,
+                      ),
                       onTagTap: _handleTagTap,
                       onEditTap: () => _openEditEntryScreen(entries[index]),
+                      onDeleteTap: () => _hideEntry(entries[index]),
+                      onHiddenPlaceholderTap: () =>
+                          _revealEntry(entries[index]),
                       onImageTap: _openImageViewer,
                     );
                   },
@@ -281,6 +425,51 @@ class _TimelineScreenState extends State<TimelineScreen> {
         onPressed: _openCreateEntryScreen,
         child: const Icon(Icons.add),
       ),
+    );
+  }
+}
+
+class _RevealPasswordDialog extends StatefulWidget {
+  const _RevealPasswordDialog();
+
+  @override
+  State<_RevealPasswordDialog> createState() => _RevealPasswordDialogState();
+}
+
+class _RevealPasswordDialogState extends State<_RevealPasswordDialog> {
+  final TextEditingController _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    Navigator.of(context).pop(_controller.text);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Reveal message'),
+      content: TextField(
+        controller: _controller,
+        obscureText: true,
+        autofocus: true,
+        decoration: const InputDecoration(
+          labelText: 'Password',
+          border: OutlineInputBorder(),
+        ),
+        onSubmitted: (_) => _submit(),
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('Reveal')),
+      ],
     );
   }
 }

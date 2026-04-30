@@ -81,7 +81,7 @@ class ExportService {
 
   Future<List<_ExportEntry>> _loadEntries() async {
     final entryRows = await _databaseService.rawQuery('''
-      SELECT entry_id, type, content, media_path, created_at, updated_at
+      SELECT entry_id, type, content, media_path, created_at, updated_at, hidden
       FROM entry_index
       ORDER BY created_at ASC, entry_id ASC
       ''');
@@ -101,14 +101,20 @@ class ExportService {
     return entryRows
         .map((row) {
           final entryId = row['entry_id']! as int;
+          final isHidden = row['hidden'] == 1;
           return _ExportEntry(
             id: entryId,
             type: row['type']! as String,
-            content: (row['content'] as String?) ?? '',
-            mediaPath: row['media_path'] as String?,
+            content: isHidden
+                ? 'Message deleted'
+                : (row['content'] as String?) ?? '',
+            mediaPath: isHidden ? null : row['media_path'] as String?,
             createdAt: row['created_at']! as int,
             updatedAt: row['updated_at'] as int?,
-            tags: List<String>.of(tagsByEntryId[entryId] ?? const <String>[]),
+            isHidden: isHidden,
+            tags: isHidden
+                ? const <String>[]
+                : List<String>.of(tagsByEntryId[entryId] ?? const <String>[]),
           );
         })
         .toList(growable: false);
@@ -205,6 +211,7 @@ class _ExportEntry {
     required this.mediaPath,
     required this.createdAt,
     required this.updatedAt,
+    required this.isHidden,
     required this.tags,
   });
 
@@ -214,6 +221,7 @@ class _ExportEntry {
   final String? mediaPath;
   final int createdAt;
   final int? updatedAt;
+  final bool isHidden;
   final List<String> tags;
 
   Map<String, Object?> toJson() {
@@ -224,6 +232,7 @@ class _ExportEntry {
       'media_path': mediaPath,
       'created_at': createdAt,
       'updated_at': updatedAt,
+      'hidden': isHidden,
       'tags': tags,
     };
   }

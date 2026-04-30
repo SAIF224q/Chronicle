@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../application/services/entry_service.dart';
+import '../application/services/settings_service.dart';
 import '../application/services/timeline_service.dart';
 import '../storage/database/database_service.dart';
 import '../storage/events/event_service.dart';
@@ -14,10 +15,12 @@ class ChronicleApp extends StatelessWidget {
     super.key,
     TimelineService? timelineService,
     EntryService? entryService,
+    SettingsService? settingsService,
     DatabaseService? databaseService,
   }) : _services = _buildServices(
          timelineService: timelineService,
          entryService: entryService,
+         settingsService: settingsService,
          databaseService: databaseService,
        );
 
@@ -26,14 +29,17 @@ class ChronicleApp extends StatelessWidget {
   static _AppServices _buildServices({
     TimelineService? timelineService,
     EntryService? entryService,
+    SettingsService? settingsService,
     DatabaseService? databaseService,
   }) {
     if (timelineService != null &&
         entryService != null &&
+        settingsService != null &&
         databaseService != null) {
       return _AppServices(
         timelineService: timelineService,
         entryService: entryService,
+        settingsService: settingsService,
         databaseService: databaseService,
       );
     }
@@ -56,6 +62,7 @@ class ChronicleApp extends StatelessWidget {
             eventService: eventService,
             mediaManager: mediaManager,
           ),
+      settingsService: settingsService ?? SettingsService(dbService),
       databaseService: dbService,
     );
   }
@@ -68,6 +75,7 @@ class ChronicleApp extends StatelessWidget {
       home: TimelineScreen(
         timelineService: _services.timelineService,
         entryService: _services.entryService,
+        settingsService: _services.settingsService,
         databaseService: _services.databaseService,
       ),
     );
@@ -78,10 +86,12 @@ class _AppServices {
   const _AppServices({
     required this.timelineService,
     required this.entryService,
+    required this.settingsService,
     required this.databaseService,
   });
 
   final TimelineService timelineService;
   final EntryService entryService;
+  final SettingsService settingsService;
   final DatabaseService databaseService;
 }

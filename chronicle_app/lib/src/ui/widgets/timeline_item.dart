@@ -8,14 +8,20 @@ class TimelineItem extends StatelessWidget {
   const TimelineItem({
     super.key,
     required this.entry,
+    required this.isRevealed,
     required this.onTagTap,
     required this.onEditTap,
+    required this.onDeleteTap,
+    required this.onHiddenPlaceholderTap,
     required this.onImageTap,
   });
 
   final TimelineEntry entry;
+  final bool isRevealed;
   final ValueChanged<String> onTagTap;
   final VoidCallback onEditTap;
+  final VoidCallback onDeleteTap;
+  final VoidCallback onHiddenPlaceholderTap;
   final ValueChanged<File> onImageTap;
 
   @override
@@ -48,10 +54,20 @@ class TimelineItem extends StatelessWidget {
                       ),
                     ),
                     IconButton(
-                      onPressed: onEditTap,
+                      onPressed: entry.isHidden && !isRevealed
+                          ? null
+                          : onEditTap,
                       visualDensity: VisualDensity.compact,
                       tooltip: 'Edit entry',
                       icon: const Icon(Icons.edit_outlined),
+                    ),
+                    IconButton(
+                      onPressed: entry.isHidden && !isRevealed
+                          ? null
+                          : onDeleteTap,
+                      visualDensity: VisualDensity.compact,
+                      tooltip: 'Delete message',
+                      icon: const Icon(Icons.delete_outline),
                     ),
                   ],
                 ),
@@ -62,33 +78,38 @@ class TimelineItem extends StatelessWidget {
                       color: colorScheme.onSurfaceVariant,
                     ),
                   ),
-                if (entry.content.isNotEmpty) ...<Widget>[
-                  const SizedBox(height: 8),
-                  Text(
-                    entry.content,
-                    style: Theme.of(context).textTheme.bodyLarge,
-                  ),
-                ],
-                if (entry.mediaFile != null) ...<Widget>[
-                  const SizedBox(height: 12),
-                  _TimelineImage(file: entry.mediaFile!, onTap: onImageTap),
-                ],
-                if (entry.tags.isNotEmpty) ...<Widget>[
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: entry.tags
-                        .map(
-                          (tag) => ActionChip(
-                            label: Text('#$tag'),
-                            visualDensity: VisualDensity.compact,
-                            side: BorderSide.none,
-                            onPressed: () => onTagTap(tag),
-                          ),
-                        )
-                        .toList(growable: false),
-                  ),
+                if (entry.isHidden && !isRevealed) ...<Widget>[
+                  const SizedBox(height: 10),
+                  _HiddenMessagePlaceholder(onTap: onHiddenPlaceholderTap),
+                ] else ...<Widget>[
+                  if (entry.content.isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 8),
+                    Text(
+                      entry.content,
+                      style: Theme.of(context).textTheme.bodyLarge,
+                    ),
+                  ],
+                  if (entry.mediaFile != null) ...<Widget>[
+                    const SizedBox(height: 12),
+                    _TimelineImage(file: entry.mediaFile!, onTap: onImageTap),
+                  ],
+                  if (entry.tags.isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: entry.tags
+                          .map(
+                            (tag) => ActionChip(
+                              label: Text('#$tag'),
+                              visualDensity: VisualDensity.compact,
+                              side: BorderSide.none,
+                              onPressed: () => onTagTap(tag),
+                            ),
+                          )
+                          .toList(growable: false),
+                    ),
+                  ],
                 ],
               ],
             ),
@@ -105,6 +126,49 @@ class TimelineItem extends StatelessWidget {
 
     return '${timestamp.day}/${timestamp.month}/${timestamp.year} '
         '$hour:$minute $period';
+  }
+}
+
+class _HiddenMessagePlaceholder extends StatelessWidget {
+  const _HiddenMessagePlaceholder({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: colorScheme.outlineVariant),
+        ),
+        child: Row(
+          children: <Widget>[
+            Icon(
+              Icons.visibility_off_outlined,
+              color: colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Message deleted',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

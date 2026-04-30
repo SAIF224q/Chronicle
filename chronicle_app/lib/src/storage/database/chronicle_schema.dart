@@ -2,11 +2,12 @@ class ChronicleSchema {
   const ChronicleSchema._();
 
   static const String databaseName = 'chronicle.db';
-  static const int databaseVersion = 2;
+  static const int databaseVersion = 3;
 
   static const String eventsTable = 'events';
   static const String entryIndexTable = 'entry_index';
   static const String entryTagsTable = 'entry_tags';
+  static const String appSettingsTable = 'app_settings';
 
   static const List<String> createTableStatements = <String>[
     '''
@@ -28,7 +29,8 @@ class ChronicleSchema {
       media_path TEXT,
       created_at INTEGER NOT NULL,
       updated_at INTEGER,
-      archived INTEGER NOT NULL DEFAULT 0 CHECK (archived IN (0, 1))
+      archived INTEGER NOT NULL DEFAULT 0 CHECK (archived IN (0, 1)),
+      hidden INTEGER NOT NULL DEFAULT 0 CHECK (hidden IN (0, 1))
     )
     ''',
     '''
@@ -36,6 +38,12 @@ class ChronicleSchema {
       entry_id INTEGER NOT NULL,
       tag TEXT NOT NULL,
       PRIMARY KEY (entry_id, tag)
+    )
+    ''',
+    '''
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
     )
     ''',
   ];

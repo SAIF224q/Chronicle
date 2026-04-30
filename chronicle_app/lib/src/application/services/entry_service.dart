@@ -85,6 +85,7 @@ class EntryService {
               'media_path': mediaPath,
               'created_at': createdAt,
               'archived': 0,
+              'hidden': 0,
             });
 
         for (final tag in tags) {
@@ -239,6 +240,53 @@ class EntryService {
         mediaPath: mediaPath,
         tags: List<String>.of(newTags.toList()..sort(), growable: false),
         createdAt: createdAt,
+      );
+    });
+  }
+
+  Future<void> hideEntry({required int entryId}) async {
+    if (entryId <= 0) {
+      throw ArgumentError.value(
+        entryId,
+        'entryId',
+        'Entry ID must be positive.',
+      );
+    }
+
+    final hiddenAt = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+
+    await _databaseService.transaction((transaction) async {
+      final existingRows = await transaction.query(
+        ChronicleSchema.entryIndexTable,
+        columns: <String>['entry_id', 'hidden'],
+        where: 'entry_id = ?',
+        whereArgs: <Object?>[entryId],
+        limit: 1,
+      );
+
+      if (existingRows.isEmpty) {
+        throw StateError('Entry $entryId was not found.');
+      }
+
+      if (existingRows.single['hidden'] == 1) {
+        return;
+      }
+
+      await _eventService.writeEvent(
+        ChronicleEventDraft(
+          eventType: 'EntryHidden',
+          entryId: entryId,
+          payload: const <String, Object?>{},
+          createdAt: hiddenAt,
+        ),
+        executor: transaction,
+      );
+
+      await transaction.update(
+        ChronicleSchema.entryIndexTable,
+        <String, Object?>{'hidden': 1},
+        where: 'entry_id = ?',
+        whereArgs: <Object?>[entryId],
       );
     });
   }

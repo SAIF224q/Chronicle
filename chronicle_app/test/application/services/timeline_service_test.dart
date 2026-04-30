@@ -66,6 +66,7 @@ void main() {
 
         expect(entries, hasLength(2));
         expect(entries[0].content, 'Newer note #ideas #ai');
+        expect(entries[0].isHidden, isFalse);
         expect(entries[0].tags, <String>['ai', 'ideas']);
         expect(entries[1].content, 'Older note #journal');
         expect(entries[1].tags, <String>['journal']);

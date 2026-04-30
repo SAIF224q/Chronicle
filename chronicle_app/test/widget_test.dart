@@ -6,6 +6,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'package:chronicle_app/src/app/chronicle_app.dart';
 import 'package:chronicle_app/src/application/services/entry_service.dart';
+import 'package:chronicle_app/src/application/services/settings_service.dart';
 import 'package:chronicle_app/src/application/services/timeline_service.dart';
 import 'package:chronicle_app/src/storage/database/database_service.dart';
 import 'package:chronicle_app/src/storage/events/event_service.dart';
@@ -14,12 +15,9 @@ import 'package:chronicle_app/src/storage/query/timeline_query_service.dart';
 
 class _FakeTimelineService extends TimelineService {
   _FakeTimelineService({
-    required TimelineQueryService timelineQueryService,
-    required MediaManager mediaManager,
-  }) : super(
-         timelineQueryService: timelineQueryService,
-         mediaManager: mediaManager,
-       );
+    required super.timelineQueryService,
+    required super.mediaManager,
+  });
 
   @override
   Future<List<TimelineEntry>> loadTimelineEntries({String? tag}) async {
@@ -29,14 +27,15 @@ class _FakeTimelineService extends TimelineService {
 
 class _FakeEntryService extends EntryService {
   _FakeEntryService({
-    required DatabaseService databaseService,
-    required EventService eventService,
-    required MediaManager mediaManager,
-  }) : super(
-         databaseService: databaseService,
-         eventService: eventService,
-         mediaManager: mediaManager,
-       );
+    required super.databaseService,
+    required super.eventService,
+    required super.mediaManager,
+  });
+}
+
+class _FakeSettingsService extends SettingsService {
+  _FakeSettingsService({required DatabaseService databaseService})
+    : super(databaseService);
 }
 
 void main() {
@@ -64,6 +63,7 @@ void main() {
           eventService: EventService(testDbService),
           mediaManager: mediaManager,
         ),
+        settingsService: _FakeSettingsService(databaseService: testDbService),
         databaseService: testDbService,
       ),
     );

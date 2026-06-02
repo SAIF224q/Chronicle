@@ -14,6 +14,7 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   final TextEditingController _passwordController = TextEditingController();
   bool _hasPassword = false;
+  String _currentTheme = 'sunset_coral';
   bool _isLoading = true;
   bool _isSaving = false;
 
@@ -31,14 +32,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _loadSettings() async {
     final hasPassword = await widget.settingsService.hasHiddenMessagePassword();
+    final currentTheme = await widget.settingsService.getSelectedTheme();
     if (!mounted) {
       return;
     }
 
     setState(() {
       _hasPassword = hasPassword;
+      _currentTheme = currentTheme;
       _isLoading = false;
     });
+  }
+
+  Future<void> _saveTheme(String themeName) async {
+    try {
+      await widget.settingsService.setSelectedTheme(themeName);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _currentTheme = themeName;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Theme updated.')),
+      );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to update theme.')),
+      );
+    }
   }
 
   Future<void> _savePassword() async {
@@ -98,6 +123,51 @@ class _SettingsScreenState extends State<SettingsScreen> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: <Widget>[
+                Card(
+                  elevation: 0,
+                  color: colorScheme.surfaceContainerLow,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          'App Theme',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        RadioListTile<String>(
+                          title: const Text('Sunset Coral (Option A)'),
+                          value: 'sunset_coral',
+                          groupValue: _currentTheme,
+                          activeColor: colorScheme.primary,
+                          contentPadding: EdgeInsets.zero,
+                          onChanged: (value) {
+                            if (value != null) {
+                              _saveTheme(value);
+                            }
+                          },
+                        ),
+                        RadioListTile<String>(
+                          title: const Text('Burnt Ember (Option C)'),
+                          value: 'burnt_ember',
+                          groupValue: _currentTheme,
+                          activeColor: colorScheme.primary,
+                          contentPadding: EdgeInsets.zero,
+                          onChanged: (value) {
+                            if (value != null) {
+                              _saveTheme(value);
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
                 Card(
                   elevation: 0,
                   color: colorScheme.surfaceContainerLow,

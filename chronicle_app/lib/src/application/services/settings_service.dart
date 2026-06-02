@@ -3,6 +3,7 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../../storage/database/chronicle_schema.dart';
@@ -14,6 +15,42 @@ class SettingsService {
   final DatabaseService _databaseService;
 
   static const String _hiddenMessagePasswordKey = 'hidden_message_password';
+  static const String _selectedThemeKey = 'selected_theme';
+
+  final ValueNotifier<String> themeNotifier = ValueNotifier<String>('sunset_coral');
+
+  Future<void> initializeTheme() async {
+    final theme = await getSelectedTheme();
+    themeNotifier.value = theme;
+  }
+
+  Future<String> getSelectedTheme() async {
+    final rows = await _databaseService.rawQuery(
+      '''
+      SELECT value
+      FROM ${ChronicleSchema.appSettingsTable}
+      WHERE key = ?
+      LIMIT 1
+      ''',
+      <Object?>[_selectedThemeKey],
+    );
+
+    if (rows.isEmpty) {
+      return 'sunset_coral';
+    }
+    return rows.single['value']! as String;
+  }
+
+  Future<void> setSelectedTheme(String themeName) async {
+    await _databaseService.transaction((transaction) async {
+      await transaction.insert(
+        ChronicleSchema.appSettingsTable,
+        <String, Object?>{'key': _selectedThemeKey, 'value': themeName},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    });
+    themeNotifier.value = themeName;
+  }
 
   Future<bool> hasHiddenMessagePassword() async {
     final rows = await _databaseService.rawQuery(

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../../application/services/timeline_service.dart';
+import 'audio_player_widget.dart';
 
 class TimelineItem extends StatelessWidget {
   const TimelineItem({
@@ -91,7 +92,9 @@ class TimelineItem extends StatelessWidget {
                   ],
                   if (entry.mediaFile != null) ...<Widget>[
                     const SizedBox(height: 12),
-                    _TimelineImage(file: entry.mediaFile!, onTap: onImageTap),
+                    entry.type == 'voice'
+                        ? AudioPlayerWidget(audioFile: entry.mediaFile!)
+                        : _TimelineImage(file: entry.mediaFile!, onTap: onImageTap),
                   ],
                   if (entry.tags.isNotEmpty) ...<Widget>[
                     const SizedBox(height: 12),

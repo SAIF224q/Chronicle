@@ -36,6 +36,28 @@ class _FakeEntryService extends EntryService {
 class _FakeSettingsService extends SettingsService {
   _FakeSettingsService({required DatabaseService databaseService})
     : super(databaseService);
+
+  @override
+  Future<void> initializeTheme() async {
+    themeNotifier.value = 'sunset_coral';
+  }
+
+  @override
+  Future<String> getSelectedTheme() async {
+    return 'sunset_coral';
+  }
+
+  @override
+  Future<void> setSelectedTheme(String themeName) async {
+    themeNotifier.value = themeName;
+  }
+}
+
+class _FakeDatabaseService extends DatabaseService {
+  _FakeDatabaseService() : super(factory: databaseFactoryFfi);
+
+  @override
+  Future<void> initializeDatabase() async {}
 }
 
 void main() {
@@ -43,10 +65,7 @@ void main() {
 
   testWidgets('renders Chronicle shell', (WidgetTester tester) async {
     sqfliteFfiInit();
-    final testDbService = DatabaseService(
-      documentsDirectoryProvider: () async => Directory.systemTemp,
-      factory: databaseFactoryFfi,
-    );
+    final testDbService = _FakeDatabaseService();
     final timelineQueryService = TimelineQueryService(testDbService);
     final mediaManager = MediaManager(
       documentsDirectoryProvider: () async => Directory.systemTemp,
@@ -67,8 +86,7 @@ void main() {
         databaseService: testDbService,
       ),
     );
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 50));
+    await tester.pumpAndSettle();
 
     expect(find.text('Chronicle'), findsOneWidget);
     expect(

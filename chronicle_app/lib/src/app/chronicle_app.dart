@@ -10,7 +10,7 @@ import '../storage/query/timeline_query_service.dart';
 import '../ui/screens/timeline_screen.dart';
 import '../ui/theme/chronicle_theme.dart';
 
-class ChronicleApp extends StatelessWidget {
+class ChronicleApp extends StatefulWidget {
   ChronicleApp({
     super.key,
     TimelineService? timelineService,
@@ -68,16 +68,54 @@ class ChronicleApp extends StatelessWidget {
   }
 
   @override
+  State<ChronicleApp> createState() => _ChronicleAppState();
+}
+
+class _ChronicleAppState extends State<ChronicleApp> {
+  bool _initialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initTheme();
+  }
+
+  Future<void> _initTheme() async {
+    await widget._services.databaseService.initializeDatabase();
+    await widget._services.settingsService.initializeTheme();
+    if (mounted) {
+      setState(() {
+        _initialized = true;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Chronicle',
-      theme: ChronicleTheme.buildTheme(),
-      home: TimelineScreen(
-        timelineService: _services.timelineService,
-        entryService: _services.entryService,
-        settingsService: _services.settingsService,
-        databaseService: _services.databaseService,
-      ),
+    if (!_initialized) {
+      return const MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: CircularProgressIndicator(),
+          ),
+        ),
+      );
+    }
+
+    return ValueListenableBuilder<String>(
+      valueListenable: widget._services.settingsService.themeNotifier,
+      builder: (context, themeName, child) {
+        return MaterialApp(
+          title: 'Chronicle',
+          theme: ChronicleTheme.buildTheme(themeName),
+          home: TimelineScreen(
+            timelineService: widget._services.timelineService,
+            entryService: widget._services.entryService,
+            settingsService: widget._services.settingsService,
+            databaseService: widget._services.databaseService,
+          ),
+        );
+      },
     );
   }
 }

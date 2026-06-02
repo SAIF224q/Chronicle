@@ -62,6 +62,7 @@ class _RecordingEntryService extends EntryService {
   Future<EntryRecord> createEntry({
     required String content,
     File? image,
+    File? voiceNote,
   }) async {
     createdContents.add(content);
     return onCreate(content, image);

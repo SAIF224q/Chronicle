@@ -142,6 +142,34 @@ void main() {
       expect(entryIndexRows.single['media_path'], entry.mediaPath);
     });
 
+    test('createEntry saves voiceNote and stores relative media path', () async {
+      final sourceVoice = File('${tempDirectory.path}/note.m4a');
+      await sourceVoice.writeAsBytes(<int>[5, 6, 7, 8]);
+
+      final entry = await entryService.createEntry(
+        content: 'Voice message #audio',
+        voiceNote: sourceVoice,
+      );
+
+      expect(entry.entryId, 1);
+      expect(entry.type, 'voice');
+      expect(entry.mediaPath, startsWith('/media/images/'));
+      expect(entry.tags, <String>['audio']);
+
+      final savedVoice = File(
+        '${tempDirectory.path}/chronicle${entry.mediaPath!.replaceAll('/', Platform.pathSeparator)}',
+      );
+      expect(await savedVoice.exists(), isTrue);
+      expect(await savedVoice.readAsBytes(), <int>[5, 6, 7, 8]);
+
+      final entryIndexRows = await databaseService.rawQuery('''
+        SELECT type, media_path
+        FROM entry_index
+        ''');
+      expect(entryIndexRows.single['type'], 'voice');
+      expect(entryIndexRows.single['media_path'], entry.mediaPath);
+    });
+
     test(
       'createEntry uses incremental entry ids and unique lowercase tags',
       () async {

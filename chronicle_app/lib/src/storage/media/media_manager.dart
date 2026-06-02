@@ -73,4 +73,31 @@ class MediaManager {
       return '/media/images/$filename';
     }
   }
+
+  Future<String> saveAudio(File audio) async {
+    if (!await audio.exists()) {
+      throw ArgumentError.value(
+        audio.path,
+        'audio',
+        'The source audio file does not exist.',
+      );
+    }
+
+    final mediaDirectory = await getMediaDirectory();
+    final extension = p.extension(audio.path);
+
+    while (true) {
+      final filename = generateFilename(
+        extension: extension.isEmpty ? '.m4a' : extension,
+      );
+      final destinationFile = File(p.join(mediaDirectory.path, filename));
+
+      if (await destinationFile.exists()) {
+        continue;
+      }
+
+      await audio.copy(destinationFile.path);
+      return '/media/images/$filename';
+    }
+  }
 }

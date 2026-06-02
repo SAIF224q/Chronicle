@@ -44,15 +44,18 @@ class EntryService {
   Future<EntryRecord> createEntry({
     required String content,
     File? image,
+    File? voiceNote,
   }) async {
     final normalizedContent = content.trim();
-    if (normalizedContent.isEmpty && image == null) {
-      throw ArgumentError('An entry must include text content or an image.');
+    if (normalizedContent.isEmpty && image == null && voiceNote == null) {
+      throw ArgumentError('An entry must include text content, an image, or a voice note.');
     }
 
     String? mediaPath;
     if (image != null) {
       mediaPath = await _mediaManager.saveImage(image);
+    } else if (voiceNote != null) {
+      mediaPath = await _mediaManager.saveAudio(voiceNote);
     }
 
     final createdAt = DateTime.now().millisecondsSinceEpoch ~/ 1000;
@@ -61,7 +64,11 @@ class EntryService {
     try {
       return await _databaseService.transaction((transaction) async {
         final entryId = await _generateEntryId(transaction);
-        final type = mediaPath == null ? 'text' : 'image';
+        final type = voiceNote != null
+            ? 'voice'
+            : mediaPath == null
+                ? 'text'
+                : 'image';
 
         await _eventService.writeEvent(
           ChronicleEventDraft(

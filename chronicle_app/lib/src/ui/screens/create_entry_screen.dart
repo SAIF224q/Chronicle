@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../application/services/entry_service.dart';
+import '../widgets/audio_recorder_widget.dart';
 
 typedef ImageFilePicker = Future<File?> Function();
 
@@ -24,6 +25,7 @@ class CreateEntryScreen extends StatefulWidget {
 class _CreateEntryScreenState extends State<CreateEntryScreen> {
   final TextEditingController _contentController = TextEditingController();
   File? _selectedImage;
+  File? _recordedVoiceFile;
   bool _isSaving = false;
 
   @override
@@ -57,6 +59,7 @@ class _CreateEntryScreenState extends State<CreateEntryScreen> {
       await widget.entryService.createEntry(
         content: _contentController.text,
         image: _selectedImage,
+        voiceNote: _recordedVoiceFile,
       );
       if (!mounted) {
         return;
@@ -139,7 +142,7 @@ class _CreateEntryScreenState extends State<CreateEntryScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          if (_selectedImage != null)
+          if (_selectedImage != null) ...[
             ClipRRect(
               borderRadius: BorderRadius.circular(18),
               child: AspectRatio(
@@ -147,17 +150,33 @@ class _CreateEntryScreenState extends State<CreateEntryScreen> {
                 child: Image.file(_selectedImage!, fit: BoxFit.cover),
               ),
             ),
-          if (_selectedImage != null) const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: OutlinedButton.icon(
-              onPressed: _isSaving ? null : _attachImage,
-              icon: const Icon(Icons.image_outlined),
-              label: Text(
-                _selectedImage == null ? 'Attach Image' : 'Change Image',
+            const SizedBox(height: 12),
+          ],
+          if (_recordedVoiceFile == null) ...[
+            Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                onPressed: _isSaving ? null : _attachImage,
+                icon: const Icon(Icons.image_outlined),
+                label: Text(
+                  _selectedImage == null ? 'Attach Image' : 'Change Image',
+                ),
               ),
             ),
-          ),
+            const SizedBox(height: 12),
+          ],
+          if (_selectedImage == null) ...[
+            Align(
+              alignment: Alignment.centerLeft,
+              child: AudioRecorderWidget(
+                onAudioRecorded: (file) {
+                  setState(() {
+                    _recordedVoiceFile = file;
+                  });
+                },
+              ),
+            ),
+          ],
         ],
       ),
     );

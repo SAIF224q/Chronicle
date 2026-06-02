@@ -402,7 +402,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
                   itemCount: entries.length,
                   itemBuilder: (context, index) {
-                    return TimelineItem(
+                    final item = TimelineItem(
                       entry: entries[index],
                       isRevealed: _revealedEntryIds.contains(
                         entries[index].entryId,
@@ -413,6 +413,22 @@ class _TimelineScreenState extends State<TimelineScreen> {
                       onHiddenPlaceholderTap: () =>
                           _revealEntry(entries[index]),
                       onImageTap: _openImageViewer,
+                    );
+
+                    return TweenAnimationBuilder<double>(
+                      duration: Duration(milliseconds: 350 + (index * 40).clamp(0, 300)),
+                      tween: Tween<double>(begin: 0.0, end: 1.0),
+                      curve: Curves.easeOutCubic,
+                      builder: (context, value, child) {
+                        return Opacity(
+                          opacity: value,
+                          child: Transform.translate(
+                            offset: Offset(0, 15 * (1 - value)),
+                            child: child,
+                          ),
+                        );
+                      },
+                      child: item,
                     );
                   },
                 ),

@@ -31,7 +31,19 @@ class _CreateEntryScreenState extends State<CreateEntryScreen> {
   @override
   void dispose() {
     _contentController.dispose();
+    _cleanupTempAudio();
     super.dispose();
+  }
+
+  Future<void> _cleanupTempAudio() async {
+    final file = _recordedVoiceFile;
+    if (file != null && await file.exists()) {
+      try {
+        await file.delete();
+      } catch (_) {
+        // Ignore any errors during cleanup
+      }
+    }
   }
 
   Future<void> _attachImage() async {
@@ -152,23 +164,22 @@ class _CreateEntryScreenState extends State<CreateEntryScreen> {
             ),
             const SizedBox(height: 12),
           ],
-          if (_recordedVoiceFile == null) ...[
-            Align(
-              alignment: Alignment.centerLeft,
-              child: OutlinedButton.icon(
-                onPressed: _isSaving ? null : _attachImage,
-                icon: const Icon(Icons.image_outlined),
-                label: Text(
-                  _selectedImage == null ? 'Attach Image' : 'Change Image',
-                ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              onPressed: _isSaving || _recordedVoiceFile != null ? null : _attachImage,
+              icon: const Icon(Icons.image_outlined),
+              label: Text(
+                _selectedImage == null ? 'Attach Image' : 'Change Image',
               ),
             ),
-            const SizedBox(height: 12),
-          ],
+          ),
+          const SizedBox(height: 12),
           if (_selectedImage == null) ...[
             Align(
               alignment: Alignment.centerLeft,
               child: AudioRecorderWidget(
+                key: const Key('audio_recorder'),
                 onAudioRecorded: (file) {
                   setState(() {
                     _recordedVoiceFile = file;

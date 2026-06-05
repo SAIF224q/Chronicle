@@ -13,6 +13,7 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _currentPasswordController = TextEditingController();
   bool _hasPassword = false;
   String _currentTheme = 'sunset_coral';
   bool _isLoading = true;
@@ -27,6 +28,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void dispose() {
     _passwordController.dispose();
+    _currentPasswordController.dispose();
     super.dispose();
   }
 
@@ -71,20 +73,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
       return;
     }
 
+    final newPassword = _passwordController.text.trim();
+    if (newPassword.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a password before saving.')),
+      );
+      return;
+    }
+
     setState(() {
       _isSaving = true;
     });
 
     try {
-      await widget.settingsService.setHiddenMessagePassword(
-        _passwordController.text,
-      );
+      if (_hasPassword) {
+        final currentPassword = _currentPasswordController.text;
+        final isValid = await widget.settingsService.verifyHiddenMessagePassword(currentPassword);
+        if (!isValid) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Incorrect current password.')),
+          );
+          setState(() {
+            _isSaving = false;
+          });
+          return;
+        }
+      }
+
+      await widget.settingsService.setHiddenMessagePassword(newPassword);
       if (!mounted) {
         return;
       }
       setState(() {
         _hasPassword = true;
         _passwordController.clear();
+        _currentPasswordController.clear();
       });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Hidden message password saved.')),
@@ -192,7 +216,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               ?.copyWith(color: colorScheme.onSurfaceVariant),
                         ),
                         const SizedBox(height: 16),
+                        if (_hasPassword) ...[
+                          TextField(
+                            key: const Key('current_password_field'),
+                            controller: _currentPasswordController,
+                            obscureText: true,
+                            decoration: const InputDecoration(
+                              labelText: 'Current reveal password',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
                         TextField(
+                          key: const Key('new_password_field'),
                           controller: _passwordController,
                           obscureText: true,
                           decoration: InputDecoration(

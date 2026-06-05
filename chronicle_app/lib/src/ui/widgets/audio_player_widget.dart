@@ -28,17 +28,6 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
   }
 
   Future<void> _initPlayer() async {
-    try {
-      await _player.setSource(DeviceFileSource(widget.audioFile.path));
-      if (mounted) {
-        setState(() {
-          _isLoaded = true;
-        });
-      }
-    } catch (_) {
-      // Handle file not loaded/missing
-    }
-
     _player.onDurationChanged.listen((duration) {
       if (mounted) {
         setState(() {
@@ -71,6 +60,25 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
         });
       }
     });
+
+    try {
+      await _player.setSource(DeviceFileSource(widget.audioFile.path));
+      final duration = await _player.getDuration();
+      if (duration != null && duration != Duration.zero) {
+        if (mounted) {
+          setState(() {
+            _duration = duration;
+          });
+        }
+      }
+      if (mounted) {
+        setState(() {
+          _isLoaded = true;
+        });
+      }
+    } catch (_) {
+      // Handle file not loaded/missing
+    }
   }
 
   @override
@@ -85,7 +93,7 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
       if (_isPlaying) {
         await _player.pause();
       } else {
-        await _player.play(DeviceFileSource(widget.audioFile.path));
+        await _player.resume();
       }
     } catch (_) {
       // Handle play exception (e.g. file deleted externally)

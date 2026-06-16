@@ -16,6 +16,9 @@ class TimelineEntry {
     this.updatedAt,
     required this.isHidden,
     required this.tags,
+    this.locationName,
+    this.latitude,
+    this.longitude,
   });
 
   final int entryId;
@@ -27,6 +30,9 @@ class TimelineEntry {
   final DateTime? updatedAt;
   final bool isHidden;
   final List<String> tags;
+  final String? locationName;
+  final double? latitude;
+  final double? longitude;
 }
 
 class TimelineService {
@@ -39,8 +45,22 @@ class TimelineService {
   final TimelineQueryService _timelineQueryService;
   final MediaManager _mediaManager;
 
-  Future<List<TimelineEntry>> loadTimelineEntries({String? tag}) async {
-    final rows = await _timelineQueryService.fetchTimelineEntries(tag: tag);
+  Future<List<TimelineEntry>> loadTimelineEntries({
+    String? tag,
+    String? searchQuery,
+    String? mediaTypeFilter,
+    DateTime? startDate,
+    DateTime? endDate,
+    bool sortByOldest = false,
+  }) async {
+    final rows = await _timelineQueryService.fetchTimelineEntries(
+      tag: tag,
+      searchQuery: searchQuery,
+      mediaTypeFilter: mediaTypeFilter,
+      startDate: startDate,
+      endDate: endDate,
+      sortByOldest: sortByOldest,
+    );
     final mediaDirectory = await _mediaManager.getMediaDirectory();
 
     return rows
@@ -63,6 +83,9 @@ class TimelineService {
                 : DateTime.fromMillisecondsSinceEpoch(row.updatedAt! * 1000),
             isHidden: row.isHidden,
             tags: List<String>.of(row.tags, growable: false),
+            locationName: row.locationName,
+            latitude: row.latitude,
+            longitude: row.longitude,
           );
         })
         .toList(growable: false);

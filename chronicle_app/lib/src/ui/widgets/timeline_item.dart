@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../application/services/timeline_service.dart';
 import 'audio_player_widget.dart';
@@ -96,6 +97,16 @@ class TimelineItem extends StatelessWidget {
                         ? AudioPlayerWidget(audioFile: entry.mediaFile!)
                         : _TimelineImage(file: entry.mediaFile!, onTap: onImageTap),
                   ],
+                  if (entry.locationName != null && entry.locationName!.isNotEmpty) ...<Widget>[
+                    const SizedBox(height: 8),
+                    ActionChip(
+                      avatar: const Icon(Icons.location_on_outlined, size: 16),
+                      label: Text(entry.locationName!),
+                      visualDensity: VisualDensity.compact,
+                      side: BorderSide.none,
+                      onPressed: () => _launchLocation(entry.locationName, entry.latitude, entry.longitude),
+                    ),
+                  ],
                   if (entry.tags.isNotEmpty) ...<Widget>[
                     const SizedBox(height: 12),
                     Wrap(
@@ -129,6 +140,25 @@ class TimelineItem extends StatelessWidget {
 
     return '${timestamp.day}/${timestamp.month}/${timestamp.year} '
         '$hour:$minute $period';
+  }
+
+  Future<void> _launchLocation(String? name, double? lat, double? lon) async {
+    Uri url;
+    if (lat != null && lon != null) {
+      url = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lon');
+    } else if (name != null && name.isNotEmpty) {
+      url = Uri.parse('https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(name)}');
+    } else {
+      return;
+    }
+
+    try {
+      if (await canLaunchUrl(url)) {
+        await launchUrl(url, mode: LaunchMode.externalApplication);
+      }
+    } catch (_) {
+      // Ignore map launching errors
+    }
   }
 }
 

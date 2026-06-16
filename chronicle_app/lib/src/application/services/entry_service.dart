@@ -16,6 +16,9 @@ class EntryRecord {
     required this.mediaPath,
     required this.tags,
     required this.createdAt,
+    this.locationName,
+    this.latitude,
+    this.longitude,
   });
 
   final int entryId;
@@ -24,6 +27,9 @@ class EntryRecord {
   final String? mediaPath;
   final List<String> tags;
   final int createdAt;
+  final String? locationName;
+  final double? latitude;
+  final double? longitude;
 }
 
 class EntryService {
@@ -45,10 +51,13 @@ class EntryService {
     required String content,
     File? image,
     File? voiceNote,
+    String? locationName,
+    double? latitude,
+    double? longitude,
   }) async {
     final normalizedContent = content.trim();
-    if (normalizedContent.isEmpty && image == null && voiceNote == null) {
-      throw ArgumentError('An entry must include text content, an image, or a voice note.');
+    if (normalizedContent.isEmpty && image == null && voiceNote == null && locationName == null) {
+      throw ArgumentError('An entry must include text content, an image, a voice note, or a location.');
     }
 
     String? mediaPath;
@@ -78,6 +87,9 @@ class EntryService {
               'type': type,
               'content': normalizedContent,
               'media_path': mediaPath,
+              'location_name': locationName,
+              'latitude': latitude,
+              'longitude': longitude,
             },
             createdAt: createdAt,
           ),
@@ -93,6 +105,9 @@ class EntryService {
               'created_at': createdAt,
               'archived': 0,
               'hidden': 0,
+              'location_name': locationName,
+              'latitude': latitude,
+              'longitude': longitude,
             });
 
         for (final tag in tags) {
@@ -120,6 +135,9 @@ class EntryService {
           mediaPath: mediaPath,
           tags: tags,
           createdAt: createdAt,
+          locationName: locationName,
+          latitude: latitude,
+          longitude: longitude,
         );
       });
     } catch (_) {

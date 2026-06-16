@@ -11,6 +11,7 @@ import 'package:chronicle_app/src/storage/database/database_service.dart';
 import 'package:chronicle_app/src/storage/events/event_service.dart';
 import 'package:chronicle_app/src/storage/media/media_manager.dart';
 import 'package:chronicle_app/src/storage/query/timeline_query_service.dart';
+import 'package:chronicle_app/src/ui/screens/create_entry_screen.dart';
 import 'package:chronicle_app/src/ui/screens/timeline_screen.dart';
 
 class _RecordingTimelineService extends TimelineService {
@@ -31,7 +32,14 @@ class _RecordingTimelineService extends TimelineService {
   final List<String?> requestedTags = <String?>[];
 
   @override
-  Future<List<TimelineEntry>> loadTimelineEntries({String? tag}) async {
+  Future<List<TimelineEntry>> loadTimelineEntries({
+    String? tag,
+    String? searchQuery,
+    String? mediaTypeFilter,
+    DateTime? startDate,
+    DateTime? endDate,
+    bool sortByOldest = false,
+  }) async {
     requestedTags.add(tag);
     return _entriesByTag[tag] ?? const <TimelineEntry>[];
   }
@@ -63,6 +71,9 @@ class _RecordingEntryService extends EntryService {
     required String content,
     File? image,
     File? voiceNote,
+    String? locationName,
+    double? latitude,
+    double? longitude,
   }) async {
     createdContents.add(content);
     return onCreate(content, image);
@@ -240,7 +251,13 @@ void main() {
     await tester.tap(find.byType(FloatingActionButton));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextField), 'Fresh Chronicle note');
+    await tester.enterText(
+      find.descendant(
+        of: find.byType(CreateEntryScreen),
+        matching: find.byType(TextField),
+      ),
+      'Fresh Chronicle note',
+    );
     await tester.tap(find.text('Save'));
     await tester.pump();
     await tester.pumpAndSettle();
@@ -301,7 +318,13 @@ void main() {
 
     await tester.tap(find.text('Message deleted'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField), 'secret');
+    await tester.enterText(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.byType(TextField),
+      ),
+      'secret',
+    );
     await tester.tap(find.text('Reveal'));
     await tester.pumpAndSettle();
 

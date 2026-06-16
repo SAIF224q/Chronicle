@@ -134,5 +134,19 @@ class DatabaseService {
         )
       ''');
     }
+    if (oldVersion < 4) {
+      await database.execute(
+        'ALTER TABLE ${ChronicleSchema.entryIndexTable} '
+        'ADD COLUMN location_name TEXT',
+      );
+      await database.execute(
+        'ALTER TABLE ${ChronicleSchema.entryIndexTable} '
+        'ADD COLUMN latitude REAL',
+      );
+      await database.execute(
+        'ALTER TABLE ${ChronicleSchema.entryIndexTable} '
+        'ADD COLUMN longitude REAL',
+      );
+    }
   }
 }

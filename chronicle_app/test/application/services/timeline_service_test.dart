@@ -83,5 +83,44 @@ void main() {
       expect(entries.single.content, 'Planning note #ideas');
       expect(entries.single.tags, <String>['ideas']);
     });
+
+    test('loadTimelineEntries searches text content and location', () async {
+      await entryService.createEntry(
+        content: 'Went to the grocery store to buy apples',
+        locationName: 'Supermarket',
+      );
+      await entryService.createEntry(
+        content: 'Relaxing at home',
+        locationName: 'My House',
+      );
+
+      final searchResults = await timelineService.loadTimelineEntries(searchQuery: 'grocery');
+      expect(searchResults, hasLength(1));
+      expect(searchResults.single.content, contains('grocery'));
+    });
+
+    test('loadTimelineEntries filters by media type and sort order', () async {
+      await entryService.createEntry(content: 'Just text entry');
+      
+      final sourceImage = File('${tempDirectory.path}/test_img.jpg');
+      await sourceImage.writeAsBytes(<int>[1, 2, 3]);
+      await entryService.createEntry(
+        content: 'Entry with image',
+        image: sourceImage,
+      );
+
+      final textOnly = await timelineService.loadTimelineEntries(mediaTypeFilter: 'text');
+      expect(textOnly, hasLength(1));
+      expect(textOnly.single.content, 'Just text entry');
+
+      final imageOnly = await timelineService.loadTimelineEntries(mediaTypeFilter: 'image');
+      expect(imageOnly, hasLength(1));
+      expect(imageOnly.single.content, 'Entry with image');
+
+      final oldestFirst = await timelineService.loadTimelineEntries(sortByOldest: true);
+      expect(oldestFirst, hasLength(2));
+      expect(oldestFirst.first.content, 'Just text entry');
+      expect(oldestFirst.last.content, 'Entry with image');
+    });
   });
 }

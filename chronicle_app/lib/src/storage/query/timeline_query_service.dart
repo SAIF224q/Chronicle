@@ -10,6 +10,9 @@ class TimelineEntryRow {
     required this.updatedAt,
     required this.isHidden,
     required this.tags,
+    this.locationName,
+    this.latitude,
+    this.longitude,
   });
 
   final int entryId;
@@ -20,6 +23,9 @@ class TimelineEntryRow {
   final int? updatedAt;
   final bool isHidden;
   final List<String> tags;
+  final String? locationName;
+  final double? latitude;
+  final double? longitude;
 }
 
 class TimelineQueryService {
@@ -27,33 +33,60 @@ class TimelineQueryService {
 
   final DatabaseService _databaseService;
 
-  Future<List<TimelineEntryRow>> fetchTimelineEntries({String? tag}) async {
+  Future<List<TimelineEntryRow>> fetchTimelineEntries({
+    String? tag,
+    String? searchQuery,
+    String? mediaTypeFilter,
+    DateTime? startDate,
+    DateTime? endDate,
+    bool sortByOldest = false,
+  }) async {
+    final whereClauses = <String>['archived = ?'];
+    final whereArgs = <Object?>[0];
+
     final normalizedTag = tag?.trim().toLowerCase();
-    final entryRows = normalizedTag == null || normalizedTag.isEmpty
-        ? await _databaseService.rawQuery(
-            '''
-              SELECT entry_id, type, content, media_path, created_at,
-                     updated_at, hidden
-              FROM entry_index
-              WHERE archived = ?
-              ORDER BY created_at DESC, entry_id DESC
-              ''',
-            <Object?>[0],
-          )
-        : await _databaseService.rawQuery(
-            '''
-              SELECT entry_index.entry_id, entry_index.type, entry_index.content,
-                     entry_index.media_path, entry_index.created_at,
-                     entry_index.updated_at, entry_index.hidden
-              FROM entry_index
-              JOIN entry_tags
-              ON entry_index.entry_id = entry_tags.entry_id
-              WHERE entry_tags.tag = ?
-              AND entry_index.archived = ?
-              ORDER BY entry_index.created_at DESC, entry_index.entry_id DESC
-              ''',
-            <Object?>[normalizedTag, 0],
-          );
+    if (normalizedTag != null && normalizedTag.isNotEmpty) {
+      whereClauses.add('''
+        entry_id IN (
+          SELECT entry_id FROM entry_tags WHERE tag = ?
+        )
+      ''');
+      whereArgs.add(normalizedTag);
+    }
+
+    if (searchQuery != null && searchQuery.trim().isNotEmpty) {
+      whereClauses.add('content LIKE ?');
+      whereArgs.add('%${searchQuery.trim()}%');
+    }
+
+    if (mediaTypeFilter != null && mediaTypeFilter != 'all') {
+      whereClauses.add('type = ?');
+      whereArgs.add(mediaTypeFilter);
+    }
+
+    if (startDate != null) {
+      whereClauses.add('created_at >= ?');
+      whereArgs.add(startDate.millisecondsSinceEpoch ~/ 1000);
+    }
+
+    if (endDate != null) {
+      whereClauses.add('created_at <= ?');
+      whereArgs.add(endDate.millisecondsSinceEpoch ~/ 1000);
+    }
+
+    final whereString = whereClauses.join(' AND ');
+    final orderBy = sortByOldest ? 'created_at ASC, entry_id ASC' : 'created_at DESC, entry_id DESC';
+
+    final entryRows = await _databaseService.rawQuery(
+      '''
+      SELECT entry_id, type, content, media_path, created_at,
+             updated_at, hidden, location_name, latitude, longitude
+      FROM entry_index
+      WHERE $whereString
+      ORDER BY $orderBy
+      ''',
+      whereArgs,
+    );
 
     if (entryRows.isEmpty) {
       return const <TimelineEntryRow>[];
@@ -87,6 +120,9 @@ class TimelineQueryService {
             updatedAt: row['updated_at'] as int?,
             isHidden: row['hidden'] == 1,
             tags: List<String>.of(tagsByEntryId[entryId] ?? const <String>[]),
+            locationName: row['location_name'] as String?,
+            latitude: row['latitude'] as double?,
+            longitude: row['longitude'] as double?,
           );
         })
         .toList(growable: false);

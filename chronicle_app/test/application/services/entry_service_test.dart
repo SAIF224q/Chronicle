@@ -279,5 +279,40 @@ void main() {
         'EntryHidden',
       ]);
     });
+
+    test('createEntry saves location details correctly', () async {
+      final entry = await entryService.createEntry(
+        content: 'Journaling at a coffee shop',
+        locationName: 'Coffee Shop, Seattle',
+        latitude: 47.6062,
+        longitude: -122.3321,
+      );
+
+      expect(entry.entryId, 1);
+      expect(entry.locationName, 'Coffee Shop, Seattle');
+      expect(entry.latitude, 47.6062);
+      expect(entry.longitude, -122.3321);
+
+      final entryIndexRows = await databaseService.rawQuery('''
+        SELECT location_name, latitude, longitude
+        FROM entry_index
+        WHERE entry_id = ?
+      ''', [entry.entryId]);
+      
+      expect(entryIndexRows.single['location_name'], 'Coffee Shop, Seattle');
+      expect(entryIndexRows.single['latitude'], 47.6062);
+      expect(entryIndexRows.single['longitude'], -122.3321);
+
+      final eventRows = await databaseService.rawQuery('''
+        SELECT payload
+        FROM events
+        WHERE entry_id = ? AND event_type = 'EntryCreated'
+      ''', [entry.entryId]);
+      
+      final payload = jsonDecode(eventRows.single['payload']! as String) as Map<String, dynamic>;
+      expect(payload['location_name'], 'Coffee Shop, Seattle');
+      expect(payload['latitude'], 47.6062);
+      expect(payload['longitude'], -122.3321);
+    });
   });
 }

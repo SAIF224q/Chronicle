@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -38,15 +39,65 @@ class _TimelineScreenState extends State<TimelineScreen> {
   final Set<int> _revealedEntryIds = <int>{};
   bool _isExporting = false;
 
+  String _searchQuery = '';
+  String _mediaTypeFilter = 'all';
+  bool _sortByOldest = false;
+  String _dateFilter = 'all';
+  DateTime? _startDate;
+  DateTime? _endDate;
+  final TextEditingController _searchController = TextEditingController();
+  Timer? _debounce;
+  bool _isFilterPanelExpanded = false;
+
   @override
   void initState() {
     super.initState();
     _loadTimeline();
   }
 
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _debounce?.cancel();
+    super.dispose();
+  }
+
   void _loadTimeline({String? tag}) {
-    _activeTagFilter = tag;
-    _timelineFuture = widget.timelineService.loadTimelineEntries(tag: tag);
+    if (tag != null) {
+      _activeTagFilter = tag;
+    }
+    _timelineFuture = widget.timelineService.loadTimelineEntries(
+      tag: _activeTagFilter,
+      searchQuery: _searchQuery,
+      mediaTypeFilter: _mediaTypeFilter,
+      sortByOldest: _sortByOldest,
+      startDate: _startDate,
+      endDate: _endDate,
+    );
+  }
+
+  void _onSearchChanged(String query) {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      setState(() {
+        _searchQuery = query;
+        _loadTimeline();
+      });
+    });
+  }
+
+  DateTime? _getStartDateForFilter(String filter) {
+    final now = DateTime.now();
+    switch (filter) {
+      case 'today':
+        return DateTime(now.year, now.month, now.day);
+      case 'week':
+        return now.subtract(const Duration(days: 7));
+      case 'month':
+        return now.subtract(const Duration(days: 30));
+      default:
+        return null;
+    }
   }
 
   void _handleTagTap(String tag) {
@@ -57,6 +108,14 @@ class _TimelineScreenState extends State<TimelineScreen> {
 
   void _clearFilter() {
     setState(() {
+      _activeTagFilter = null;
+      _searchQuery = '';
+      _searchController.clear();
+      _mediaTypeFilter = 'all';
+      _sortByOldest = false;
+      _dateFilter = 'all';
+      _startDate = null;
+      _endDate = null;
       _loadTimeline();
     });
   }
@@ -339,108 +398,415 @@ class _TimelineScreenState extends State<TimelineScreen> {
           ),
         ],
       ),
-      body: FutureBuilder<List<TimelineEntry>>(
-        future: _timelineFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      body: Column(
+        children: [
+          _buildSearchBar(),
+          _buildFilterPanel(),
+          Expanded(
+            child: FutureBuilder<List<TimelineEntry>>(
+              future: _timelineFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
 
-          if (snapshot.hasError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(
-                  'Unable to load the timeline right now.',
-                  style: Theme.of(context).textTheme.bodyLarge,
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            );
-          }
-
-          final entries = snapshot.data ?? const <TimelineEntry>[];
-          if (entries.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    if (_activeTagFilter != null) ...<Widget>[
-                      _ActiveFilterBanner(
-                        tag: _activeTagFilter!,
-                        onClear: _clearFilter,
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        'Unable to load the timeline right now.',
+                        style: Theme.of(context).textTheme.bodyLarge,
+                        textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 16),
-                    ],
-                    Text(
-                      _activeTagFilter == null
-                          ? 'No entries yet. Your Chronicle timeline will appear here.'
-                          : 'No entries found for #$_activeTagFilter.',
-                      style: Theme.of(context).textTheme.bodyLarge,
-                      textAlign: TextAlign.center,
+                    ),
+                  );
+                }
+
+                final entries = snapshot.data ?? const <TimelineEntry>[];
+                final hasActiveFilters = _activeTagFilter != null ||
+                    _searchQuery.isNotEmpty ||
+                    _mediaTypeFilter != 'all' ||
+                    _dateFilter != 'all';
+
+                if (entries.isEmpty) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          if (_activeTagFilter != null) ...[
+                            _ActiveFilterBanner(
+                              tag: _activeTagFilter!,
+                              onClear: _clearFilter,
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                          Text(
+                            hasActiveFilters
+                                ? 'No entries match your search/filters.'
+                                : 'No entries yet. Your Chronicle timeline will appear here.',
+                            style: Theme.of(context).textTheme.bodyLarge,
+                            textAlign: TextAlign.center,
+                          ),
+                          if (hasActiveFilters && _activeTagFilter == null) ...[
+                            const SizedBox(height: 16),
+                            FilledButton.tonal(
+                              onPressed: _clearFilter,
+                              child: const Text('Clear All Filters'),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  );
+                }
+
+                return Column(
+                  children: <Widget>[
+                    if (_activeTagFilter != null)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                        child: _ActiveFilterBanner(
+                          tag: _activeTagFilter!,
+                          onClear: _clearFilter,
+                        ),
+                      ),
+                    Expanded(
+                      child: ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+                        itemCount: entries.length,
+                        itemBuilder: (context, index) {
+                          final item = TimelineItem(
+                            entry: entries[index],
+                            isRevealed: _revealedEntryIds.contains(
+                              entries[index].entryId,
+                            ),
+                            onTagTap: _handleTagTap,
+                            onEditTap: () => _openEditEntryScreen(entries[index]),
+                            onDeleteTap: () => _hideEntry(entries[index]),
+                            onHiddenPlaceholderTap: () =>
+                                _revealEntry(entries[index]),
+                            onImageTap: _openImageViewer,
+                          );
+
+                          return TweenAnimationBuilder<double>(
+                            duration: Duration(milliseconds: 350 + (index * 40).clamp(0, 300)),
+                            tween: Tween<double>(begin: 0.0, end: 1.0),
+                            curve: Curves.easeOutCubic,
+                            builder: (context, value, child) {
+                              return Opacity(
+                                opacity: value,
+                                child: Transform.translate(
+                                  offset: Offset(0, 15 * (1 - value)),
+                                  child: child,
+                                ),
+                              );
+                            },
+                            child: item,
+                          );
+                        },
+                      ),
                     ),
                   ],
-                ),
-              ),
-            );
-          }
-
-          return Column(
-            children: <Widget>[
-              if (_activeTagFilter != null)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                  child: _ActiveFilterBanner(
-                    tag: _activeTagFilter!,
-                    onClear: _clearFilter,
-                  ),
-                ),
-              Expanded(
-                child: ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
-                  itemCount: entries.length,
-                  itemBuilder: (context, index) {
-                    final item = TimelineItem(
-                      entry: entries[index],
-                      isRevealed: _revealedEntryIds.contains(
-                        entries[index].entryId,
-                      ),
-                      onTagTap: _handleTagTap,
-                      onEditTap: () => _openEditEntryScreen(entries[index]),
-                      onDeleteTap: () => _hideEntry(entries[index]),
-                      onHiddenPlaceholderTap: () =>
-                          _revealEntry(entries[index]),
-                      onImageTap: _openImageViewer,
-                    );
-
-                    return TweenAnimationBuilder<double>(
-                      duration: Duration(milliseconds: 350 + (index * 40).clamp(0, 300)),
-                      tween: Tween<double>(begin: 0.0, end: 1.0),
-                      curve: Curves.easeOutCubic,
-                      builder: (context, value, child) {
-                        return Opacity(
-                          opacity: value,
-                          child: Transform.translate(
-                            offset: Offset(0, 15 * (1 - value)),
-                            child: child,
-                          ),
-                        );
-                      },
-                      child: item,
-                    );
-                  },
-                ),
-              ),
-            ],
-          );
-        },
+                );
+              },
+            ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _openCreateEntryScreen,
         child: const Icon(Icons.add),
       ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: Container(
+        height: 52,
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(26),
+          border: Border.all(
+            color: colorScheme.outlineVariant.withOpacity(0.5),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.02),
+              blurRadius: 6,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: [
+            Icon(Icons.search_rounded, color: colorScheme.onSurfaceVariant.withOpacity(0.8)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: TextField(
+                controller: _searchController,
+                onChanged: (value) {
+                  setState(() {});
+                  _onSearchChanged(value);
+                },
+                decoration: InputDecoration(
+                  hintText: 'Search thoughts, locations...',
+                  hintStyle: TextStyle(
+                    color: colorScheme.onSurfaceVariant.withOpacity(0.5),
+                  ),
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
+                  isDense: true,
+                ),
+                style: TextStyle(
+                  color: colorScheme.onSurface,
+                  fontSize: 15,
+                ),
+              ),
+            ),
+            if (_searchController.text.isNotEmpty) ...[
+              IconButton(
+                icon: const Icon(Icons.clear_rounded, size: 20),
+                onPressed: () {
+                  setState(() {
+                    _searchController.clear();
+                  });
+                  _onSearchChanged('');
+                },
+                constraints: const BoxConstraints(),
+                padding: const EdgeInsets.all(4),
+              ),
+              const SizedBox(width: 8),
+            ],
+            IconButton(
+              icon: Icon(
+                Icons.tune_rounded,
+                color: _isFilterPanelExpanded ? colorScheme.primary : colorScheme.onSurfaceVariant.withOpacity(0.8),
+              ),
+              onPressed: () {
+                setState(() {
+                  _isFilterPanelExpanded = !_isFilterPanelExpanded;
+                });
+              },
+              constraints: const BoxConstraints(),
+              padding: const EdgeInsets.all(4),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterPanel() {
+    final colorScheme = Theme.of(context).colorScheme;
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeInOut,
+      child: !_isFilterPanelExpanded
+          ? const SizedBox.shrink()
+          : Container(
+              margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: colorScheme.outlineVariant.withOpacity(0.4),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Media Type',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                  const SizedBox(height: 4),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _buildFilterChip(
+                          label: 'All',
+                          selected: _mediaTypeFilter == 'all',
+                          onSelected: (selected) {
+                            if (selected) {
+                              setState(() {
+                                _mediaTypeFilter = 'all';
+                                _loadTimeline();
+                              });
+                            }
+                          },
+                        ),
+                        const SizedBox(width: 6),
+                        _buildFilterChip(
+                          label: 'Text',
+                          selected: _mediaTypeFilter == 'text',
+                          onSelected: (selected) {
+                            if (selected) {
+                              setState(() {
+                                _mediaTypeFilter = 'text';
+                                _loadTimeline();
+                              });
+                            }
+                          },
+                        ),
+                        const SizedBox(width: 6),
+                        _buildFilterChip(
+                          label: 'Images',
+                          selected: _mediaTypeFilter == 'image',
+                          onSelected: (selected) {
+                            if (selected) {
+                              setState(() {
+                                _mediaTypeFilter = 'image';
+                                _loadTimeline();
+                              });
+                            }
+                          },
+                        ),
+                        const SizedBox(width: 6),
+                        _buildFilterChip(
+                          label: 'Voice Notes',
+                          selected: _mediaTypeFilter == 'voice',
+                          onSelected: (selected) {
+                            if (selected) {
+                              setState(() {
+                                _mediaTypeFilter = 'voice';
+                                _loadTimeline();
+                              });
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Time Range',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                  const SizedBox(height: 4),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _buildFilterChip(
+                          label: 'All Time',
+                          selected: _dateFilter == 'all',
+                          onSelected: (selected) {
+                            if (selected) {
+                              setState(() {
+                                _dateFilter = 'all';
+                                _startDate = null;
+                                _loadTimeline();
+                              });
+                            }
+                          },
+                        ),
+                        const SizedBox(width: 6),
+                        _buildFilterChip(
+                          label: 'Today',
+                          selected: _dateFilter == 'today',
+                          onSelected: (selected) {
+                            if (selected) {
+                              setState(() {
+                                _dateFilter = 'today';
+                                _startDate = _getStartDateForFilter('today');
+                                _loadTimeline();
+                              });
+                            }
+                          },
+                        ),
+                        const SizedBox(width: 6),
+                        _buildFilterChip(
+                          label: 'Last 7 Days',
+                          selected: _dateFilter == 'week',
+                          onSelected: (selected) {
+                            if (selected) {
+                              setState(() {
+                                _dateFilter = 'week';
+                                _startDate = _getStartDateForFilter('week');
+                                _loadTimeline();
+                              });
+                            }
+                          },
+                        ),
+                        const SizedBox(width: 6),
+                        _buildFilterChip(
+                          label: 'Last 30 Days',
+                          selected: _dateFilter == 'month',
+                          onSelected: (selected) {
+                            if (selected) {
+                              setState(() {
+                                _dateFilter = 'month';
+                                _startDate = _getStartDateForFilter('month');
+                                _loadTimeline();
+                              });
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Sort Order',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      _buildFilterChip(
+                        label: 'Newest First',
+                        selected: !_sortByOldest,
+                        onSelected: (selected) {
+                          if (selected) {
+                            setState(() {
+                              _sortByOldest = false;
+                              _loadTimeline();
+                            });
+                          }
+                        },
+                      ),
+                      const SizedBox(width: 6),
+                      _buildFilterChip(
+                        label: 'Oldest First',
+                        selected: _sortByOldest,
+                        onSelected: (selected) {
+                          if (selected) {
+                            setState(() {
+                              _sortByOldest = true;
+                              _loadTimeline();
+                            });
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+    );
+  }
+
+  Widget _buildFilterChip({
+    required String label,
+    required bool selected,
+    required ValueChanged<bool> onSelected,
+  }) {
+    return ChoiceChip(
+      label: Text(label, style: const TextStyle(fontSize: 12)),
+      selected: selected,
+      onSelected: onSelected,
+      visualDensity: VisualDensity.compact,
     );
   }
 }

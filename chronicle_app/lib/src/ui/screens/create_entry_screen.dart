@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../application/services/entry_service.dart';
+import '../../application/services/location_service.dart';
 import '../widgets/audio_recorder_widget.dart';
 
 typedef ImageFilePicker = Future<File?> Function();
@@ -27,6 +28,9 @@ class _CreateEntryScreenState extends State<CreateEntryScreen> {
   File? _selectedImage;
   File? _recordedVoiceFile;
   bool _isSaving = false;
+  String? _locationName;
+  double? _latitude;
+  double? _longitude;
 
   @override
   void dispose() {
@@ -72,6 +76,9 @@ class _CreateEntryScreenState extends State<CreateEntryScreen> {
         content: _contentController.text,
         image: _selectedImage,
         voiceNote: _recordedVoiceFile,
+        locationName: _locationName,
+        latitude: _latitude,
+        longitude: _longitude,
       );
       if (!mounted) {
         return;
@@ -90,6 +97,23 @@ class _CreateEntryScreenState extends State<CreateEntryScreen> {
           _isSaving = false;
         });
       }
+    }
+  }
+
+  Future<void> _selectLocation() async {
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (BuildContext context) {
+        return const _LocationPickDialog(locationService: LocationService());
+      },
+    );
+
+    if (result != null) {
+      setState(() {
+        _locationName = result['name'] as String?;
+        _latitude = result['latitude'] as double?;
+        _longitude = result['longitude'] as double?;
+      });
     }
   }
 
@@ -154,6 +178,23 @@ class _CreateEntryScreenState extends State<CreateEntryScreen> {
             ),
           ),
           const SizedBox(height: 16),
+          if (_locationName != null) ...[
+            Align(
+              alignment: Alignment.centerLeft,
+              child: InputChip(
+                avatar: const Icon(Icons.location_on, size: 16),
+                label: Text(_locationName!),
+                onDeleted: () {
+                  setState(() {
+                    _locationName = null;
+                    _latitude = null;
+                    _longitude = null;
+                  });
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           if (_selectedImage != null) ...[
             ClipRRect(
               borderRadius: BorderRadius.circular(18),
@@ -175,6 +216,17 @@ class _CreateEntryScreenState extends State<CreateEntryScreen> {
             ),
           ),
           const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              onPressed: _isSaving ? null : _selectLocation,
+              icon: const Icon(Icons.location_on_outlined),
+              label: Text(
+                _locationName == null ? 'Add Location' : 'Change Location',
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
           if (_selectedImage == null) ...[
             Align(
               alignment: Alignment.centerLeft,
@@ -190,6 +242,144 @@ class _CreateEntryScreenState extends State<CreateEntryScreen> {
           ],
         ],
       ),
+    );
+  }
+}
+
+class _LocationPickDialog extends StatefulWidget {
+  const _LocationPickDialog({required this.locationService});
+
+  final LocationService locationService;
+
+  @override
+  State<_LocationPickDialog> createState() => _LocationPickDialogState();
+}
+
+class _LocationPickDialogState extends State<_LocationPickDialog> {
+  final TextEditingController _customLocationController = TextEditingController();
+  bool _isLoading = false;
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    _customLocationController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _getCurrentLocation() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final position = await widget.locationService.getCurrentPosition();
+      if (position == null) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Could not access device location. Please ensure location services and permissions are enabled.';
+        });
+        return;
+      }
+
+      final name = await widget.locationService.reverseGeocode(
+        position.latitude,
+        position.longitude,
+      );
+
+      if (!mounted) return;
+
+      Navigator.of(context).pop(<String, dynamic>{
+        'name': name ?? '${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}',
+        'latitude': position.latitude,
+        'longitude': position.longitude,
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Error fetching location: $e';
+      });
+    }
+  }
+
+  void _submitCustomLocation() {
+    final name = _customLocationController.text.trim();
+    if (name.isEmpty) return;
+    Navigator.of(context).pop(<String, dynamic>{
+      'name': name,
+      'latitude': null,
+      'longitude': null,
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return AlertDialog(
+      title: const Text('Add Location'),
+      content: _isLoading
+          ? const Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Fetching location details...'),
+              ],
+            )
+          : SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (_errorMessage != null) ...[
+                    Text(
+                      _errorMessage!,
+                      style: TextStyle(color: colorScheme.error, fontSize: 13),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  FilledButton.icon(
+                    onPressed: _getCurrentLocation,
+                    icon: const Icon(Icons.my_location),
+                    label: const Text('Use Current Location'),
+                  ),
+                  const SizedBox(height: 16),
+                  const Row(
+                    children: [
+                      Expanded(child: Divider()),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 8),
+                        child: Text('OR', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      ),
+                      Expanded(child: Divider()),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _customLocationController,
+                    decoration: const InputDecoration(
+                      labelText: 'Enter custom location name',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.location_on_outlined),
+                    ),
+                    onSubmitted: (_) => _submitCustomLocation(),
+                  ),
+                ],
+              ),
+            ),
+      actions: _isLoading
+          ? null
+          : [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: _submitCustomLocation,
+                child: const Text('Add'),
+              ),
+            ],
     );
   }
 }

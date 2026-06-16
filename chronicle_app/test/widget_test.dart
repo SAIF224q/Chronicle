@@ -20,7 +20,14 @@ class _FakeTimelineService extends TimelineService {
   });
 
   @override
-  Future<List<TimelineEntry>> loadTimelineEntries({String? tag}) async {
+  Future<List<TimelineEntry>> loadTimelineEntries({
+    String? tag,
+    String? searchQuery,
+    String? mediaTypeFilter,
+    DateTime? startDate,
+    DateTime? endDate,
+    bool sortByOldest = false,
+  }) async {
     return const <TimelineEntry>[];
   }
 }

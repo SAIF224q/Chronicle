@@ -148,5 +148,11 @@ class DatabaseService {
         'ADD COLUMN longitude REAL',
       );
     }
+    if (oldVersion < 5) {
+      await database.execute(
+        'ALTER TABLE ${ChronicleSchema.entryIndexTable} '
+        'ADD COLUMN mood TEXT NOT NULL DEFAULT \'none\'',
+      );
+    }
   }
 }

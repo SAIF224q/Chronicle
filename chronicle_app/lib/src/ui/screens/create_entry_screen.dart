@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../application/services/entry_service.dart';
 import '../../application/services/location_service.dart';
 import '../widgets/audio_recorder_widget.dart';
+import '../widgets/vibe_selector_strip.dart';
 
 typedef ImageFilePicker = Future<File?> Function();
 
@@ -31,6 +32,7 @@ class _CreateEntryScreenState extends State<CreateEntryScreen> {
   String? _locationName;
   double? _latitude;
   double? _longitude;
+  String _selectedMood = 'none';
 
   @override
   void dispose() {
@@ -79,6 +81,7 @@ class _CreateEntryScreenState extends State<CreateEntryScreen> {
         locationName: _locationName,
         latitude: _latitude,
         longitude: _longitude,
+        mood: _selectedMood,
       );
       if (!mounted) {
         return;
@@ -130,116 +133,242 @@ class _CreateEntryScreenState extends State<CreateEntryScreen> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final appBarActionColor =
-        Theme.of(context).appBarTheme.foregroundColor ?? colorScheme.onPrimary;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Create Entry'),
         actions: <Widget>[
           TextButton(
-            style: TextButton.styleFrom(foregroundColor: appBarActionColor),
             onPressed: _isSaving ? null : _saveEntry,
             child: _isSaving
-                ? SizedBox(
+                ? const SizedBox(
                     width: 18,
                     height: 18,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        appBarActionColor,
-                      ),
                     ),
                   )
-                : const Text('Save'),
+                : const Text(
+                    'Save',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: <Widget>[
-          Card(
-            elevation: 0,
-            color: colorScheme.surfaceContainerLow,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(22),
+      body: Column(
+        children: [
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              children: <Widget>[
+                // Content editor Card
+                Container(
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1A1715) : colorScheme.surface,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isDark ? const Color(0xFF2C2825) : colorScheme.outlineVariant.withOpacity(0.8),
+                      width: 1.2,
+                    ),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  child: TextField(
+                    controller: _contentController,
+                    maxLines: 8,
+                    minLines: 6,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: colorScheme.onSurface,
+                      height: 1.4,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Write a thought, memory, or note...',
+                      hintStyle: TextStyle(
+                        color: colorScheme.onSurfaceVariant.withOpacity(0.4),
+                      ),
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Location attached preview
+                if (_locationName != null) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1E1A17) : colorScheme.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: isDark ? const Color(0xFF2C2825) : colorScheme.outlineVariant,
+                        width: 1.2,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.location_on_rounded, color: colorScheme.primary, size: 18),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            _locationName!,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _locationName = null;
+                              _latitude = null;
+                              _longitude = null;
+                            });
+                          },
+                          child: Icon(
+                            Icons.cancel_rounded,
+                            color: colorScheme.onSurfaceVariant.withOpacity(0.6),
+                            size: 20,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
+                // Image attached preview with clear/delete button
+                if (_selectedImage != null) ...[
+                  Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(20),
+                        child: AspectRatio(
+                          aspectRatio: 16 / 10,
+                          child: Image.file(_selectedImage!, fit: BoxFit.cover),
+                        ),
+                      ),
+                      Positioned(
+                        top: 10,
+                        right: 10,
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _selectedImage = null;
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: const BoxDecoration(
+                              color: Colors.black54,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.close_rounded,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
+                // Voice Note Recorder preview
+                if (_selectedImage == null) ...[
+                  AudioRecorderWidget(
+                    key: const Key('audio_recorder'),
+                    onAudioRecorded: (file) {
+                      setState(() {
+                        _recordedVoiceFile = file;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
+                // Vibe Selector Strip
+                VibeSelectorStrip(
+                  selectedMood: _selectedMood,
+                  onMoodSelected: (mood) {
+                    setState(() {
+                      _selectedMood = mood;
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
+              ],
             ),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: TextField(
-                controller: _contentController,
-                maxLines: 8,
-                minLines: 6,
-                decoration: const InputDecoration(
-                  hintText: 'Write a thought, memory, or note...',
-                  border: InputBorder.none,
+          ),
+          // Attachment toolbar at the bottom
+          _buildAttachmentToolbar(context),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAttachmentToolbar(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final outlineColor = isDark ? const Color(0xFF2C2825) : colorScheme.outlineVariant.withOpacity(0.8);
+
+    return Container(
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 8,
+        bottom: MediaQuery.of(context).padding.bottom + 8,
+      ),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF141211) : colorScheme.surface,
+        border: Border(
+          top: BorderSide(color: outlineColor, width: 1.2),
+        ),
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: _isSaving || _recordedVoiceFile != null ? null : _attachImage,
+            icon: Icon(
+              _selectedImage == null ? Icons.image_outlined : Icons.image_rounded,
+              color: _recordedVoiceFile != null 
+                  ? colorScheme.onSurfaceVariant.withOpacity(0.3) 
+                  : colorScheme.primary,
+              size: 24,
+            ),
+            tooltip: 'Attach Image',
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            onPressed: _isSaving ? null : _selectLocation,
+            icon: Icon(
+              _locationName == null ? Icons.location_on_outlined : Icons.location_on_rounded,
+              color: colorScheme.primary,
+              size: 24,
+            ),
+            tooltip: 'Add Location',
+          ),
+          const Spacer(),
+          if (_selectedImage != null || _locationName != null || _recordedVoiceFile != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: colorScheme.primary.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                'Attached',
+                style: TextStyle(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 10,
+                  letterSpacing: 0.5,
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 16),
-          if (_locationName != null) ...[
-            Align(
-              alignment: Alignment.centerLeft,
-              child: InputChip(
-                avatar: const Icon(Icons.location_on, size: 16),
-                label: Text(_locationName!),
-                onDeleted: () {
-                  setState(() {
-                    _locationName = null;
-                    _latitude = null;
-                    _longitude = null;
-                  });
-                },
-              ),
-            ),
-            const SizedBox(height: 12),
-          ],
-          if (_selectedImage != null) ...[
-            ClipRRect(
-              borderRadius: BorderRadius.circular(18),
-              child: AspectRatio(
-                aspectRatio: 4 / 3,
-                child: Image.file(_selectedImage!, fit: BoxFit.cover),
-              ),
-            ),
-            const SizedBox(height: 12),
-          ],
-          Align(
-            alignment: Alignment.centerLeft,
-            child: OutlinedButton.icon(
-              onPressed: _isSaving || _recordedVoiceFile != null ? null : _attachImage,
-              icon: const Icon(Icons.image_outlined),
-              label: Text(
-                _selectedImage == null ? 'Attach Image' : 'Change Image',
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: OutlinedButton.icon(
-              onPressed: _isSaving ? null : _selectLocation,
-              icon: const Icon(Icons.location_on_outlined),
-              label: Text(
-                _locationName == null ? 'Add Location' : 'Change Location',
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          if (_selectedImage == null) ...[
-            Align(
-              alignment: Alignment.centerLeft,
-              child: AudioRecorderWidget(
-                key: const Key('audio_recorder'),
-                onAudioRecorded: (file) {
-                  setState(() {
-                    _recordedVoiceFile = file;
-                  });
-                },
-              ),
-            ),
-          ],
         ],
       ),
     );
@@ -317,7 +446,8 @@ class _LocationPickDialogState extends State<_LocationPickDialog> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return AlertDialog(
-      title: const Text('Add Location'),
+      title: const Text('Add Location', style: TextStyle(fontWeight: FontWeight.bold)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       content: _isLoading
           ? const Column(
               mainAxisSize: MainAxisSize.min,
@@ -341,7 +471,7 @@ class _LocationPickDialogState extends State<_LocationPickDialog> {
                   ],
                   FilledButton.icon(
                     onPressed: _getCurrentLocation,
-                    icon: const Icon(Icons.my_location),
+                    icon: const Icon(Icons.my_location_rounded),
                     label: const Text('Use Current Location'),
                   ),
                   const SizedBox(height: 16),
@@ -350,7 +480,7 @@ class _LocationPickDialogState extends State<_LocationPickDialog> {
                       Expanded(child: Divider()),
                       Padding(
                         padding: EdgeInsets.symmetric(horizontal: 8),
-                        child: Text('OR', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        child: Text('OR', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                       ),
                       Expanded(child: Divider()),
                     ],
@@ -360,7 +490,6 @@ class _LocationPickDialogState extends State<_LocationPickDialog> {
                     controller: _customLocationController,
                     decoration: const InputDecoration(
                       labelText: 'Enter custom location name',
-                      border: OutlineInputBorder(),
                       prefixIcon: Icon(Icons.location_on_outlined),
                     ),
                     onSubmitted: (_) => _submitCustomLocation(),

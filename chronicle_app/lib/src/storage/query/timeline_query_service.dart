@@ -13,6 +13,7 @@ class TimelineEntryRow {
     this.locationName,
     this.latitude,
     this.longitude,
+    required this.mood,
   });
 
   final int entryId;
@@ -26,6 +27,7 @@ class TimelineEntryRow {
   final String? locationName;
   final double? latitude;
   final double? longitude;
+  final String mood;
 }
 
 class TimelineQueryService {
@@ -80,7 +82,7 @@ class TimelineQueryService {
     final entryRows = await _databaseService.rawQuery(
       '''
       SELECT entry_id, type, content, media_path, created_at,
-             updated_at, hidden, location_name, latitude, longitude
+             updated_at, hidden, location_name, latitude, longitude, mood
       FROM entry_index
       WHERE $whereString
       ORDER BY $orderBy
@@ -123,6 +125,7 @@ class TimelineQueryService {
             locationName: row['location_name'] as String?,
             latitude: row['latitude'] as double?,
             longitude: row['longitude'] as double?,
+            mood: row['mood'] as String? ?? 'none',
           );
         })
         .toList(growable: false);

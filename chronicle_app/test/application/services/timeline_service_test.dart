@@ -122,5 +122,23 @@ void main() {
       expect(oldestFirst.first.content, 'Just text entry');
       expect(oldestFirst.last.content, 'Entry with image');
     });
+
+    test('loadTimelineEntries returns correct mood values', () async {
+      await entryService.createEntry(
+        content: 'Chilling out',
+        mood: 'chill',
+      );
+      await entryService.createEntry(
+        content: 'Hype vibe',
+        mood: 'hype',
+      );
+
+      final entries = await timelineService.loadTimelineEntries();
+      expect(entries, hasLength(2));
+      expect(entries[0].content, 'Hype vibe');
+      expect(entries[0].mood, 'hype');
+      expect(entries[1].content, 'Chilling out');
+      expect(entries[1].mood, 'chill');
+    });
   });
 }

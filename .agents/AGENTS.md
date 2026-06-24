@@ -35,6 +35,7 @@ This document defines the custom instructions and standard operating procedures 
 **Trigger**: When the user says: `"work on UI/UX"`.
 
 1. **Invoke UI/UX Skill**: Load and follow instructions in [.agents/skills/ui-ux-developer/SKILL.md](file:///d:/Chronicle/.agents/skills/ui-ux-developer/SKILL.md).
-2. **Audit & Plan**: Check [ui_ux_development/](file:///d:/Chronicle/ui_ux_development/) folder for references. Audit existing screen layouts in `chronicle_app/lib/screens/`.
+2. **Audit & Plan**: Check [ui_ux_development/](file:///d:/Chronicle/ui_ux_development/) folder for screenshots of the current version. Audit existing screen layouts in `chronicle_app/lib/screens/`.
 3. **Redesign & Polish**: Think independently to identify opportunities to elevate layout quality, animations, typography, and styling for a modern, Gen Z feel.
+
 4. **Implementation & Walkthrough**: Modify styling files/widgets and document changes.

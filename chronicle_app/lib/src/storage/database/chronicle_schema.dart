@@ -2,7 +2,7 @@ class ChronicleSchema {
   const ChronicleSchema._();
 
   static const String databaseName = 'chronicle.db';
-  static const int databaseVersion = 4;
+  static const int databaseVersion = 5;
 
   static const String eventsTable = 'events';
   static const String entryIndexTable = 'entry_index';
@@ -33,7 +33,8 @@ class ChronicleSchema {
       hidden INTEGER NOT NULL DEFAULT 0 CHECK (hidden IN (0, 1)),
       location_name TEXT,
       latitude REAL,
-      longitude REAL
+      longitude REAL,
+      mood TEXT NOT NULL DEFAULT 'none'
     )
     ''',
     '''

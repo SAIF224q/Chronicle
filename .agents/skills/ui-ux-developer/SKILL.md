@@ -5,14 +5,14 @@ description: "Expert instruction set for adopting a senior UI/UX designer role t
 
 # UI/UX Developer Skill
 
-This skill guides the AI agent when the user issues the command: `"work on UI/UX"`. Your objective is to act as a Senior UI/UX Designer and Flutter Developer to improve the visual identity and user experience of Chronicle.
+This skill guides the AI agent when the user issues the command: `"work on UI/UX"`. Your objective is to act as an exceptionally creative Senior UI/UX Designer and Flutter Developer to improve the visual identity and user experience of Chronicle.
 
 ## Target Audience & Application Concept
 * **App Description**: Chronicle is a "chat-with-yourself" journaling application. Users log thoughts, feelings, notes, and milestones by sending text and voice messages to their private chat log.
 * **Target Demographic**: Gen Z. They expect sleek, high-fidelity, interactive, and personalized user interfaces.
 * **Aesthetics**: Avoid default Material colors. Focus on a modern, premium design language:
   * Minimalist, clean typography (e.g., Inter, Outfit, or custom Google Fonts).
-  * curated dark modes with glassmorphism (opacity blur) and soft glowing gradients.
+  * Curated dark modes with glassmorphism (opacity blur) and soft glowing gradients.
   * Organic UI layouts (rounded message bubbles, smooth padding, expressive icons).
   * Tactile, interactive micro-animations (transitions, hover-states, press feedback).
 
@@ -21,19 +21,18 @@ This skill guides the AI agent when the user issues the command: `"work on UI/UX
 ## Operating Procedure
 
 ### Step 1: Research & Audit
-1. Go to the [ui_ux_development/](file:///d:/Chronicle/ui_ux_development/) directory and check for any reference screenshots, text feedback, or mockups that have been added.
-2. Read the source code of current screens in `chronicle_app/lib/screens/` and widgets in `chronicle_app/lib/widgets/` to understand the current layout structure.
-3. Assess the design against modern aesthetics:
-   - Typography consistency (font sizes, weights, heights).
-   - Bubble chat design (spacing, margins, borders, avatar placement, voice message playback widgets).
-   - Navigation elements (bottom bars, drawer menus, header styles).
+1. Go to the [ui_ux_development/](file:///d:/Chronicle/ui_ux_development/) directory. This folder contains screenshots of the **current** version of the application (old screenshots are deleted by the user, and new ones are added here upon updates).
+2. Examine the screenshots to understand exactly how the current version of the application looks.
+3. Compare the visual designs in the screenshots with the source code of current screens in `chronicle_app/lib/screens/` and widgets in `chronicle_app/lib/widgets/`.
 
-### Step 2: Plan UI/UX Improvements
-* Formulate a visual improvement plan without asking the user for specifications. Think independently to design a premium, delightful experience.
-* Target core areas:
-  - **Color Palette & Theme**: Cohesive dark/light transitions, premium accents.
-  - **Chat Interface**: Soft margins, responsive shapes, voice player UI.
-  - **Gestures and Interactions**: Adding feedback, subtle card elevations, button animations.
+### Step 2: Plan UI/UX Improvements (Autonomous Creativity)
+* There is no human intervention or detailed visual specification provided. It is entirely up to you to be creative, think critically as a designer, and find areas to improve.
+* Identify aspects of the current layout (as seen in the screenshots) that look unpolished, dated, or default-styled.
+* Devise a visual and interactive improvement plan targeting:
+  - Better typography, spacing, and font sizes.
+  - Premium backgrounds, colors, and gradients (dark mode emphasis).
+  - Modern chat bubbles and voice message players.
+  - Micro-animations and tactile feedback.
 
 ### Step 3: Implement Design Upgrades
 * Edit Flutter widget files using best styling practices (Theme-driven properties, custom Canvas painting if required, clean Widget trees).

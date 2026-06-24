@@ -19,6 +19,7 @@ class EntryRecord {
     this.locationName,
     this.latitude,
     this.longitude,
+    required this.mood,
   });
 
   final int entryId;
@@ -30,6 +31,7 @@ class EntryRecord {
   final String? locationName;
   final double? latitude;
   final double? longitude;
+  final String mood;
 }
 
 class EntryService {
@@ -54,6 +56,7 @@ class EntryService {
     String? locationName,
     double? latitude,
     double? longitude,
+    String mood = 'none',
   }) async {
     final normalizedContent = content.trim();
     if (normalizedContent.isEmpty && image == null && voiceNote == null && locationName == null) {
@@ -90,6 +93,7 @@ class EntryService {
               'location_name': locationName,
               'latitude': latitude,
               'longitude': longitude,
+              'mood': mood,
             },
             createdAt: createdAt,
           ),
@@ -108,6 +112,7 @@ class EntryService {
               'location_name': locationName,
               'latitude': latitude,
               'longitude': longitude,
+              'mood': mood,
             });
 
         for (final tag in tags) {
@@ -138,6 +143,7 @@ class EntryService {
           locationName: locationName,
           latitude: latitude,
           longitude: longitude,
+          mood: mood,
         );
       });
     } catch (_) {
@@ -151,6 +157,7 @@ class EntryService {
   Future<EntryRecord> editEntry({
     required int entryId,
     required String content,
+    String? mood,
   }) async {
     if (entryId <= 0) {
       throw ArgumentError.value(
@@ -171,6 +178,7 @@ class EntryService {
           'content',
           'media_path',
           'created_at',
+          'mood',
         ],
         where: 'entry_id = ?',
         whereArgs: <Object?>[entryId],
@@ -185,6 +193,8 @@ class EntryService {
       final type = existing['type']! as String;
       final mediaPath = existing['media_path'] as String?;
       final createdAt = existing['created_at']! as int;
+      final existingMood = existing['mood'] as String? ?? 'none';
+      final resolvedMood = mood ?? existingMood;
       final normalizedContent = content.trim();
 
       if (type == 'text' && normalizedContent.isEmpty) {
@@ -195,7 +205,10 @@ class EntryService {
         ChronicleEventDraft(
           eventType: 'EntryEdited',
           entryId: entryId,
-          payload: <String, Object?>{'content': normalizedContent},
+          payload: <String, Object?>{
+            'content': normalizedContent,
+            if (mood != null) 'mood': mood,
+          },
           createdAt: editedAt,
         ),
         executor: transaction,
@@ -203,7 +216,11 @@ class EntryService {
 
       await transaction.update(
         ChronicleSchema.entryIndexTable,
-        <String, Object?>{'content': normalizedContent, 'updated_at': editedAt},
+        <String, Object?>{
+          'content': normalizedContent,
+          'updated_at': editedAt,
+          if (mood != null) 'mood': mood,
+        },
         where: 'entry_id = ?',
         whereArgs: <Object?>[entryId],
       );
@@ -265,6 +282,7 @@ class EntryService {
         mediaPath: mediaPath,
         tags: List<String>.of(newTags.toList()..sort(), growable: false),
         createdAt: createdAt,
+        mood: resolvedMood,
       );
     });
   }

@@ -314,5 +314,77 @@ void main() {
       expect(payload['latitude'], 47.6062);
       expect(payload['longitude'], -122.3321);
     });
+
+    test('createEntry stores custom mood in index and payload', () async {
+      final entry = await entryService.createEntry(
+        content: 'Feeling great!',
+        mood: 'hype',
+      );
+
+      expect(entry.mood, 'hype');
+
+      final entryIndexRows = await databaseService.rawQuery('''
+        SELECT mood
+        FROM entry_index
+        WHERE entry_id = ?
+      ''', [entry.entryId]);
+      expect(entryIndexRows.single['mood'], 'hype');
+
+      final eventRows = await databaseService.rawQuery('''
+        SELECT payload
+        FROM events
+        WHERE entry_id = ? AND event_type = 'EntryCreated'
+      ''', [entry.entryId]);
+      final payload = jsonDecode(eventRows.single['payload']! as String) as Map<String, dynamic>;
+      expect(payload['mood'], 'hype');
+    });
+
+    test('editEntry updates mood in index and payload', () async {
+      final entry = await entryService.createEntry(content: 'Just woke up');
+      expect(entry.mood, 'none');
+
+      final edited = await entryService.editEntry(
+        entryId: entry.entryId,
+        content: 'Feeling awesome now!',
+        mood: 'hype',
+      );
+      expect(edited.mood, 'hype');
+
+      final entryIndexRows = await databaseService.rawQuery('''
+        SELECT mood
+        FROM entry_index
+        WHERE entry_id = ?
+      ''', [entry.entryId]);
+      expect(entryIndexRows.single['mood'], 'hype');
+
+      final eventRows = await databaseService.rawQuery('''
+        SELECT payload
+        FROM events
+        WHERE entry_id = ? AND event_type = 'EntryEdited'
+      ''', [entry.entryId]);
+      final payload = jsonDecode(eventRows.single['payload']! as String) as Map<String, dynamic>;
+      expect(payload['mood'], 'hype');
+    });
+
+    test('editEntry preserves existing mood if not specified', () async {
+      final entry = await entryService.createEntry(
+        content: 'Chilling out',
+        mood: 'chill',
+      );
+      expect(entry.mood, 'chill');
+
+      final edited = await entryService.editEntry(
+        entryId: entry.entryId,
+        content: 'Still chilling, but editing text',
+      );
+      expect(edited.mood, 'chill');
+
+      final entryIndexRows = await databaseService.rawQuery('''
+        SELECT mood
+        FROM entry_index
+        WHERE entry_id = ?
+      ''', [entry.entryId]);
+      expect(entryIndexRows.single['mood'], 'chill');
+    });
   });
 }

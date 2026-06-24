@@ -146,6 +146,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
             entryService: widget.entryService,
             entryId: entry.entryId,
             initialContent: entry.content,
+            initialMood: entry.mood,
           );
         },
       ),
@@ -353,12 +354,37 @@ class _TimelineScreenState extends State<TimelineScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final backgroundGradient = isDark
+        ? const LinearGradient(
+            colors: [Color(0xFF0F0D0C), Color(0xFF1B1816)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          )
+        : const LinearGradient(
+            colors: [Color(0xFFFCFAF7), Color(0xFFF5F1EB)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          );
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Chronicle'),
+        title: Text(
+          'Chronicle',
+          style: theme.appBarTheme.titleTextStyle?.copyWith(
+            fontWeight: FontWeight.w900,
+            fontSize: 26,
+            letterSpacing: -0.8,
+          ),
+        ),
         actions: [
           PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert),
+            icon: const Icon(Icons.more_vert_rounded),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
             onSelected: (value) {
               if (value == 'export') {
                 _exportData();
@@ -367,13 +393,13 @@ class _TimelineScreenState extends State<TimelineScreen> {
               }
             },
             itemBuilder: (context) => [
-              const PopupMenuItem<String>(
+              PopupMenuItem<String>(
                 value: 'settings',
                 child: Row(
                   children: [
-                    Icon(Icons.settings_outlined, size: 20),
-                    SizedBox(width: 12),
-                    Text('Settings'),
+                    Icon(Icons.settings_outlined, size: 20, color: theme.colorScheme.primary),
+                    const SizedBox(width: 12),
+                    const Text('Settings', style: TextStyle(fontWeight: FontWeight.w600)),
                   ],
                 ),
               ),
@@ -386,11 +412,11 @@ class _TimelineScreenState extends State<TimelineScreen> {
                         height: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Row(
+                    : Row(
                         children: [
-                          Icon(Icons.download, size: 20),
-                          SizedBox(width: 12),
-                          Text('Export Data'),
+                          Icon(Icons.download_rounded, size: 20, color: theme.colorScheme.primary),
+                          const SizedBox(width: 12),
+                          const Text('Export Data', style: TextStyle(fontWeight: FontWeight.w600)),
                         ],
                       ),
               ),
@@ -398,155 +424,173 @@ class _TimelineScreenState extends State<TimelineScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          _buildSearchBar(),
-          _buildFilterPanel(),
-          Expanded(
-            child: FutureBuilder<List<TimelineEntry>>(
-              future: _timelineFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: backgroundGradient,
+        ),
+        child: Column(
+          children: [
+            _buildSearchBar(),
+            _buildFilterPanel(),
+            Expanded(
+              child: FutureBuilder<List<TimelineEntry>>(
+                future: _timelineFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
 
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(
-                        'Unable to load the timeline right now.',
-                        style: Theme.of(context).textTheme.bodyLarge,
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  );
-                }
-
-                final entries = snapshot.data ?? const <TimelineEntry>[];
-                final hasActiveFilters = _activeTagFilter != null ||
-                    _searchQuery.isNotEmpty ||
-                    _mediaTypeFilter != 'all' ||
-                    _dateFilter != 'all';
-
-                if (entries.isEmpty) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[
-                          if (_activeTagFilter != null) ...[
-                            _ActiveFilterBanner(
-                              tag: _activeTagFilter!,
-                              onClear: _clearFilter,
-                            ),
-                            const SizedBox(height: 16),
-                          ],
-                          Text(
-                            hasActiveFilters
-                                ? 'No entries match your search/filters.'
-                                : 'No entries yet. Your Chronicle timeline will appear here.',
-                            style: Theme.of(context).textTheme.bodyLarge,
-                            textAlign: TextAlign.center,
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(
+                          'Unable to load the timeline right now.',
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.onSurfaceVariant,
                           ),
-                          if (hasActiveFilters && _activeTagFilter == null) ...[
-                            const SizedBox(height: 16),
-                            FilledButton.tonal(
-                              onPressed: _clearFilter,
-                              child: const Text('Clear All Filters'),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  );
-                }
-
-                return Column(
-                  children: <Widget>[
-                    if (_activeTagFilter != null)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                        child: _ActiveFilterBanner(
-                          tag: _activeTagFilter!,
-                          onClear: _clearFilter,
+                          textAlign: TextAlign.center,
                         ),
                       ),
-                    Expanded(
-                      child: ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
-                        itemCount: entries.length,
-                        itemBuilder: (context, index) {
-                          final item = TimelineItem(
-                            entry: entries[index],
-                            isRevealed: _revealedEntryIds.contains(
-                              entries[index].entryId,
-                            ),
-                            onTagTap: _handleTagTap,
-                            onEditTap: () => _openEditEntryScreen(entries[index]),
-                            onDeleteTap: () => _hideEntry(entries[index]),
-                            onHiddenPlaceholderTap: () =>
-                                _revealEntry(entries[index]),
-                            onImageTap: _openImageViewer,
-                          );
+                    );
+                  }
 
-                          return TweenAnimationBuilder<double>(
-                            duration: Duration(milliseconds: 350 + (index * 40).clamp(0, 300)),
-                            tween: Tween<double>(begin: 0.0, end: 1.0),
-                            curve: Curves.easeOutCubic,
-                            builder: (context, value, child) {
-                              return Opacity(
-                                opacity: value,
-                                child: Transform.translate(
-                                  offset: Offset(0, 15 * (1 - value)),
-                                  child: child,
-                                ),
-                              );
-                            },
-                            child: item,
-                          );
-                        },
+                  final entries = snapshot.data ?? const <TimelineEntry>[];
+                  final hasActiveFilters = _activeTagFilter != null ||
+                      _searchQuery.isNotEmpty ||
+                      _mediaTypeFilter != 'all' ||
+                      _dateFilter != 'all';
+
+                  if (entries.isEmpty) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            if (_activeTagFilter != null) ...[
+                              _ActiveFilterBanner(
+                                tag: _activeTagFilter!,
+                                onClear: _clearFilter,
+                              ),
+                              const SizedBox(height: 16),
+                            ],
+                            Text(
+                              hasActiveFilters
+                                  ? 'No entries match your search/filters.'
+                                  : 'No entries yet. Your Chronicle timeline will appear here.',
+                              style: theme.textTheme.bodyLarge?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            if (hasActiveFilters && _activeTagFilter == null) ...[
+                              const SizedBox(height: 16),
+                              FilledButton.tonal(
+                                onPressed: _clearFilter,
+                                child: const Text('Clear All Filters'),
+                              ),
+                            ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
-                );
-              },
+                    );
+                  }
+
+                  return Column(
+                    children: <Widget>[
+                      if (_activeTagFilter != null)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                          child: _ActiveFilterBanner(
+                            tag: _activeTagFilter!,
+                            onClear: _clearFilter,
+                          ),
+                        ),
+                      Expanded(
+                        child: ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+                          itemCount: entries.length,
+                          itemBuilder: (context, index) {
+                            final item = TimelineItem(
+                              entry: entries[index],
+                              isRevealed: _revealedEntryIds.contains(
+                                entries[index].entryId,
+                              ),
+                              onTagTap: _handleTagTap,
+                              onEditTap: () => _openEditEntryScreen(entries[index]),
+                              onDeleteTap: () => _hideEntry(entries[index]),
+                              onHiddenPlaceholderTap: () =>
+                                  _revealEntry(entries[index]),
+                              onImageTap: _openImageViewer,
+                            );
+
+                            return TweenAnimationBuilder<double>(
+                              duration: Duration(milliseconds: 350 + (index * 40).clamp(0, 300)),
+                              tween: Tween<double>(begin: 0.0, end: 1.0),
+                              curve: Curves.easeOutCubic,
+                              builder: (context, value, child) {
+                                return Opacity(
+                                  opacity: value,
+                                  child: Transform.translate(
+                                    offset: Offset(0, 15 * (1 - value)),
+                                    child: child,
+                                  ),
+                                );
+                              },
+                              child: item,
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _openCreateEntryScreen,
-        child: const Icon(Icons.add),
+        child: const Icon(Icons.add_rounded, size: 28),
       ),
     );
   }
 
   Widget _buildSearchBar() {
     final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
       child: Container(
-        height: 52,
+        height: 54,
         decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(26),
+          color: isDark ? const Color(0xFF1E1A17) : colorScheme.surface,
+          borderRadius: BorderRadius.circular(27),
           border: Border.all(
-            color: colorScheme.outlineVariant.withOpacity(0.5),
+            color: isDark ? const Color(0xFF2C2825) : colorScheme.outlineVariant.withOpacity(0.5),
+            width: 1.2,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.02),
-              blurRadius: 6,
-              offset: const Offset(0, 3),
+              color: Colors.black.withOpacity(isDark ? 0.2 : 0.03),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 18),
         child: Row(
           children: [
-            Icon(Icons.search_rounded, color: colorScheme.onSurfaceVariant.withOpacity(0.8)),
+            Icon(
+              Icons.search_rounded, 
+              color: colorScheme.onSurfaceVariant.withOpacity(0.6),
+              size: 22,
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: TextField(
@@ -558,7 +602,9 @@ class _TimelineScreenState extends State<TimelineScreen> {
                 decoration: InputDecoration(
                   hintText: 'Search thoughts, locations...',
                   hintStyle: TextStyle(
-                    color: colorScheme.onSurfaceVariant.withOpacity(0.5),
+                    color: colorScheme.onSurfaceVariant.withOpacity(0.4),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
                   ),
                   border: InputBorder.none,
                   enabledBorder: InputBorder.none,
@@ -569,12 +615,13 @@ class _TimelineScreenState extends State<TimelineScreen> {
                 style: TextStyle(
                   color: colorScheme.onSurface,
                   fontSize: 15,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ),
             if (_searchController.text.isNotEmpty) ...[
               IconButton(
-                icon: const Icon(Icons.clear_rounded, size: 20),
+                icon: Icon(Icons.clear_rounded, size: 20, color: colorScheme.onSurfaceVariant.withOpacity(0.6)),
                 onPressed: () {
                   setState(() {
                     _searchController.clear();
@@ -586,10 +633,17 @@ class _TimelineScreenState extends State<TimelineScreen> {
               ),
               const SizedBox(width: 8),
             ],
+            Container(
+              width: 1,
+              height: 22,
+              color: colorScheme.outlineVariant.withOpacity(0.6),
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+            ),
             IconButton(
               icon: Icon(
                 Icons.tune_rounded,
-                color: _isFilterPanelExpanded ? colorScheme.primary : colorScheme.onSurfaceVariant.withOpacity(0.8),
+                color: _isFilterPanelExpanded ? colorScheme.primary : colorScheme.onSurfaceVariant.withOpacity(0.6),
+                size: 22,
               ),
               onPressed: () {
                 setState(() {
@@ -597,7 +651,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
                 });
               },
               constraints: const BoxConstraints(),
-              padding: const EdgeInsets.all(4),
+              padding: const EdgeInsets.all(8),
             ),
           ],
         ),
@@ -607,29 +661,44 @@ class _TimelineScreenState extends State<TimelineScreen> {
 
   Widget _buildFilterPanel() {
     final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return AnimatedSize(
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.easeInOut,
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOutCubic,
       child: !_isFilterPanelExpanded
           ? const SizedBox.shrink()
           : Container(
-              margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.fromLTRB(16, 6, 16, 8),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerLow,
-                borderRadius: BorderRadius.circular(16),
+                color: isDark ? const Color(0xFF1A1715) : colorScheme.surface,
+                borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: colorScheme.outlineVariant.withOpacity(0.4),
+                  color: isDark ? const Color(0xFF2C2825) : colorScheme.outlineVariant.withOpacity(0.5),
+                  width: 1.2,
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(isDark ? 0.15 : 0.02),
+                    blurRadius: 6,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Media Type',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      letterSpacing: 0.5,
+                      color: colorScheme.onSurfaceVariant.withOpacity(0.8),
+                    ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 8),
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
@@ -646,7 +715,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
                             }
                           },
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 8),
                         _buildFilterChip(
                           label: 'Text',
                           selected: _mediaTypeFilter == 'text',
@@ -659,7 +728,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
                             }
                           },
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 8),
                         _buildFilterChip(
                           label: 'Images',
                           selected: _mediaTypeFilter == 'image',
@@ -672,7 +741,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
                             }
                           },
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 8),
                         _buildFilterChip(
                           label: 'Voice Notes',
                           selected: _mediaTypeFilter == 'voice',
@@ -688,12 +757,17 @@ class _TimelineScreenState extends State<TimelineScreen> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  const Text(
+                  const SizedBox(height: 14),
+                  Text(
                     'Time Range',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      letterSpacing: 0.5,
+                      color: colorScheme.onSurfaceVariant.withOpacity(0.8),
+                    ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 8),
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
@@ -711,7 +785,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
                             }
                           },
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 8),
                         _buildFilterChip(
                           label: 'Today',
                           selected: _dateFilter == 'today',
@@ -725,7 +799,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
                             }
                           },
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 8),
                         _buildFilterChip(
                           label: 'Last 7 Days',
                           selected: _dateFilter == 'week',
@@ -739,7 +813,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
                             }
                           },
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 8),
                         _buildFilterChip(
                           label: 'Last 30 Days',
                           selected: _dateFilter == 'month',
@@ -756,12 +830,17 @@ class _TimelineScreenState extends State<TimelineScreen> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  const Text(
+                  const SizedBox(height: 14),
+                  Text(
                     'Sort Order',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      letterSpacing: 0.5,
+                      color: colorScheme.onSurfaceVariant.withOpacity(0.8),
+                    ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 8),
                   Row(
                     children: [
                       _buildFilterChip(
@@ -776,7 +855,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
                           }
                         },
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 8),
                       _buildFilterChip(
                         label: 'Oldest First',
                         selected: _sortByOldest,
@@ -802,11 +881,47 @@ class _TimelineScreenState extends State<TimelineScreen> {
     required bool selected,
     required ValueChanged<bool> onSelected,
   }) {
-    return ChoiceChip(
-      label: Text(label, style: const TextStyle(fontSize: 12)),
-      selected: selected,
-      onSelected: onSelected,
-      visualDensity: VisualDensity.compact,
+    final theme = Theme.of(context);
+    final primary = theme.colorScheme.primary;
+    final isDark = theme.brightness == Brightness.dark;
+
+    return GestureDetector(
+      onTap: () => onSelected(!selected),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected
+              ? primary.withOpacity(isDark ? 0.25 : 0.15)
+              : theme.colorScheme.surfaceContainerHigh.withOpacity(0.4),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected
+                ? primary
+                : theme.colorScheme.outlineVariant.withOpacity(0.4),
+            width: selected ? 1.5 : 1.0,
+          ),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: primary.withOpacity(0.12),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  )
+                ]
+              : null,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: selected ? FontWeight.bold : FontWeight.w600,
+            color: selected
+                ? (isDark ? primary : theme.colorScheme.primary)
+                : theme.colorScheme.onSurfaceVariant.withOpacity(0.8),
+          ),
+        ),
+      ),
     );
   }
 }

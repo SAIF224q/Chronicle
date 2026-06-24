@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
@@ -37,7 +38,7 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget>
     _audioRecorder = AudioRecorder();
     _pulseController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 1),
+      duration: const Duration(milliseconds: 1200),
     );
   }
 
@@ -61,7 +62,7 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget>
 
         await _audioRecorder.start(const RecordConfig(encoder: AudioEncoder.aacLc), path: path);
 
-        _pulseController.repeat(reverse: true);
+        _pulseController.repeat();
 
         setState(() {
           _state = RecorderState.recording;
@@ -171,65 +172,105 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget>
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     switch (_state) {
       case RecorderState.idle:
         return OutlinedButton.icon(
           onPressed: _startRecording,
-          icon: const Icon(Icons.mic_none_outlined),
+          icon: const Icon(Icons.mic_rounded, size: 20),
           label: const Text('Record Voice Note'),
           style: OutlinedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            side: BorderSide(
+              color: isDark ? const Color(0xFF2C2825) : colorScheme.outlineVariant,
+              width: 1.5,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
           ),
         );
 
       case RecorderState.recording:
         return Container(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: colorScheme.primary.withAlpha(50)),
+            color: isDark ? const Color(0xFF1E1A17) : colorScheme.surface,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: Colors.red.withOpacity(0.3),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.red.withOpacity(0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
+              ),
+            ],
           ),
           child: Row(
             children: [
-              AnimatedBuilder(
-                animation: _pulseController,
-                builder: (context, child) {
-                  return Container(
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: Colors.red.withOpacity(0.3 + 0.7 * _pulseController.value),
-                      shape: BoxShape.circle,
-                    ),
+              // Waveform pulsing animation
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: List.generate(7, (index) {
+                  final offset = index * (math.pi / 4);
+                  return AnimatedBuilder(
+                    animation: _pulseController,
+                    builder: (context, child) {
+                      final angle = (_pulseController.value * 2 * math.pi) + offset;
+                      final scale = 0.3 + 0.7 * (0.5 + 0.5 * math.sin(angle));
+                      return Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 1.5),
+                        width: 3.5,
+                        height: 18 * scale,
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.4 + 0.6 * scale),
+                          borderRadius: BorderRadius.circular(1.5),
+                        ),
+                      );
+                    },
                   );
-                },
+                }),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 14),
               Text(
-                'Recording... ${_formatDuration(_recordSeconds)}',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyMedium
-                    ?.copyWith(fontWeight: FontWeight.bold),
+                _formatDuration(_recordSeconds),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: isDark ? Colors.white : Colors.black,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
               ),
               const Spacer(),
               IconButton(
                 onPressed: _cancelRecording,
-                icon: const Icon(Icons.delete_outline),
-                color: Colors.red,
+                icon: const Icon(Icons.delete_outline_rounded, size: 22),
+                color: Colors.red.shade400,
                 tooltip: 'Discard',
+                constraints: const BoxConstraints(),
+                padding: const EdgeInsets.all(8),
               ),
               const SizedBox(width: 8),
               FilledButton(
                 onPressed: _stopRecording,
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.stop, size: 18),
+                    Icon(Icons.stop_rounded, size: 18),
                     SizedBox(width: 4),
-                    Text('Done'),
+                    Text('Done', style: TextStyle(fontWeight: FontWeight.bold)),
                   ],
                 ),
               ),
@@ -241,34 +282,64 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget>
         return Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: colorScheme.outlineVariant),
+            color: isDark ? const Color(0xFF1E1A17) : colorScheme.surface,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: isDark ? const Color(0xFF2C2825) : colorScheme.outlineVariant.withOpacity(0.8),
+              width: 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(isDark ? 0.15 : 0.02),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           child: Row(
             children: [
-              IconButton.filledTonal(
-                onPressed: _togglePreview,
-                icon: Icon(
-                  _isPlayingPreview ? Icons.pause : Icons.play_arrow,
+              GestureDetector(
+                onTap: _togglePreview,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: _isPlayingPreview ? colorScheme.primary.withOpacity(0.15) : colorScheme.primary,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: colorScheme.primary,
+                      width: 1.5,
+                    ),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(
+                    _isPlayingPreview ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                    color: _isPlayingPreview 
+                        ? colorScheme.primary 
+                        : (isDark ? Colors.black : Colors.white),
+                    size: 22,
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       'Voice Note Attached',
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodyMedium
-                          ?.copyWith(fontWeight: FontWeight.bold),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
                     ),
+                    const SizedBox(height: 2),
                     Text(
                       _recordedFilePath != null ? p.basename(_recordedFilePath!) : '',
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
+                            color: colorScheme.onSurfaceVariant.withOpacity(0.6),
                           ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -278,9 +349,10 @@ class _AudioRecorderWidgetState extends State<AudioRecorderWidget>
               ),
               IconButton(
                 onPressed: _deleteRecordedPreview,
-                icon: const Icon(Icons.delete_outline),
-                color: Colors.red,
+                icon: Icon(Icons.delete_outline_rounded, color: Colors.red.shade400, size: 22),
                 tooltip: 'Discard',
+                constraints: const BoxConstraints(),
+                padding: const EdgeInsets.all(8),
               ),
             ],
           ),

@@ -74,6 +74,7 @@ class _RecordingEntryService extends EntryService {
     String? locationName,
     double? latitude,
     double? longitude,
+    String mood = 'none',
   }) async {
     createdContents.add(content);
     return onCreate(content, image);
@@ -116,6 +117,7 @@ void main() {
             createdAt: DateTime(2026, 3, 11, 10, 30),
             isHidden: false,
             tags: const <String>['ideas'],
+            mood: 'none',
           ),
           TimelineEntry(
             entryId: 1,
@@ -126,6 +128,7 @@ void main() {
             createdAt: DateTime(2026, 3, 11, 9, 0),
             isHidden: false,
             tags: const <String>['travel'],
+            mood: 'none',
           ),
         ],
         'ideas': <TimelineEntry>[
@@ -138,6 +141,7 @@ void main() {
             createdAt: DateTime(2026, 3, 11, 10, 30),
             isHidden: false,
             tags: const <String>['ideas'],
+            mood: 'none',
           ),
         ],
       },
@@ -161,6 +165,7 @@ void main() {
                 mediaPath: null,
                 tags: const <String>[],
                 createdAt: 0,
+                mood: 'none',
               );
             },
           ),
@@ -212,6 +217,7 @@ void main() {
             createdAt: DateTime(2026, 3, 11, 12, 0),
             isHidden: false,
             tags: const <String>[],
+            mood: 'none',
           ),
         ];
 
@@ -222,6 +228,7 @@ void main() {
           mediaPath: null,
           tags: const <String>[],
           createdAt: 1710158400,
+          mood: 'none',
         );
       },
     );
@@ -282,6 +289,7 @@ void main() {
             createdAt: DateTime(2026, 3, 11, 12, 0),
             isHidden: true,
             tags: const <String>['private'],
+            mood: 'none',
           ),
         ],
       },
@@ -300,6 +308,7 @@ void main() {
                 mediaPath: null,
                 tags: const <String>[],
                 createdAt: 0,
+                mood: 'none',
               );
             },
           ),

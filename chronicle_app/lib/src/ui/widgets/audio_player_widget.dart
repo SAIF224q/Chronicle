@@ -96,7 +96,6 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
         await _player.resume();
       }
     } catch (_) {
-      // Handle play exception (e.g. file deleted externally)
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Audio file is unavailable.')),
@@ -119,24 +118,29 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     if (!widget.audioFile.existsSync()) {
       return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerHighest,
+          color: isDark ? const Color(0xFF221F1D).withOpacity(0.6) : colorScheme.surfaceContainerHighest.withOpacity(0.5),
           borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isDark ? const Color(0xFF2C2825) : colorScheme.outlineVariant.withOpacity(0.6),
+          ),
         ),
         child: Row(
           children: [
-            Icon(Icons.voice_over_off_outlined, color: colorScheme.onSurfaceVariant),
+            Icon(Icons.voice_over_off_outlined, color: colorScheme.onSurfaceVariant.withOpacity(0.7)),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 'Voice note file unavailable',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
+                      color: colorScheme.onSurfaceVariant.withOpacity(0.8),
                       fontStyle: FontStyle.italic,
+                      fontWeight: FontWeight.w500,
                     ),
               ),
             ),
@@ -148,33 +152,70 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colorScheme.outlineVariant),
+        color: isDark ? const Color(0xFF1E1A17) : colorScheme.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isDark ? const Color(0xFF2C2825) : colorScheme.outlineVariant.withOpacity(0.8),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.15 : 0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          IconButton.filled(
-            onPressed: _isLoaded ? _togglePlay : null,
-            icon: Icon(_isPlaying ? Icons.pause : Icons.play_arrow),
-            style: IconButton.styleFrom(
-              backgroundColor: colorScheme.primary,
-              foregroundColor: colorScheme.onPrimary,
+          GestureDetector(
+            onTap: _isLoaded ? _togglePlay : null,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: _isPlaying ? colorScheme.primary.withOpacity(0.15) : colorScheme.primary,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: colorScheme.primary,
+                  width: 1.5,
+                ),
+                boxShadow: _isPlaying
+                    ? null
+                    : [
+                        BoxShadow(
+                          color: colorScheme.primary.withOpacity(0.3),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+              ),
+              alignment: Alignment.center,
+              child: Icon(
+                _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                color: _isPlaying 
+                    ? colorScheme.primary 
+                    : (isDark ? Colors.black : Colors.white),
+                size: 22,
+              ),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 SliderTheme(
                   data: SliderTheme.of(context).copyWith(
-                    trackHeight: 3,
-                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                    overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+                    trackHeight: 2.5,
+                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+                    overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),
                     activeTrackColor: colorScheme.primary,
-                    inactiveTrackColor: colorScheme.outlineVariant,
+                    inactiveTrackColor: isDark ? const Color(0xFF2C2825) : colorScheme.outlineVariant.withOpacity(0.6),
                     thumbColor: colorScheme.primary,
+                    trackShape: const RectangularSliderTrackShape(),
                   ),
                   child: Slider(
                     min: 0.0,
@@ -191,20 +232,24 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
                         _formatDuration(_position),
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
+                              color: colorScheme.onSurfaceVariant.withOpacity(0.6),
+                              fontWeight: FontWeight.w600,
+                              fontSize: 10,
                             ),
                       ),
                       Text(
                         _formatDuration(_duration),
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
+                              color: colorScheme.onSurfaceVariant.withOpacity(0.6),
+                              fontWeight: FontWeight.w600,
+                              fontSize: 10,
                             ),
                       ),
                     ],

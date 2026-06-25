@@ -20,6 +20,7 @@ class TimelineEntry {
     this.latitude,
     this.longitude,
     required this.mood,
+    this.transcript,
   });
 
   final int entryId;
@@ -35,6 +36,7 @@ class TimelineEntry {
   final double? latitude;
   final double? longitude;
   final String mood;
+  final String? transcript;
 }
 
 class TimelineService {
@@ -89,6 +91,7 @@ class TimelineService {
             latitude: row.latitude,
             longitude: row.longitude,
             mood: row.mood,
+            transcript: row.transcript,
           );
         })
         .toList(growable: false);

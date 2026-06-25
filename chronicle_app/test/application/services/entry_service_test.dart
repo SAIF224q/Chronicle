@@ -58,7 +58,7 @@ void main() {
         expect(entry.entryId, 1);
         expect(entry.type, 'text');
         expect(entry.mediaPath, isNull);
-        expect(entry.tags, <String>['startup', 'ai']);
+        expect(entry.tags, <String>['ai', 'startup']);
 
         final events = await databaseService.rawQuery('''
         SELECT event_type, entry_id, payload, created_at
@@ -86,7 +86,7 @@ void main() {
             )
             .map((payload) => payload['tag'])
             .toList();
-        expect(tagPayloads, <String>['startup', 'ai']);
+        expect(tagPayloads, <String>['ai', 'startup']);
 
         final entryIndexRows = await databaseService.rawQuery('''
         SELECT entry_id, type, content, media_path, archived
@@ -108,8 +108,8 @@ void main() {
         ORDER BY rowid
         ''');
         expect(entryTagRows, <Map<String, Object?>>[
-          <String, Object?>{'entry_id': 1, 'tag': 'startup'},
           <String, Object?>{'entry_id': 1, 'tag': 'ai'},
+          <String, Object?>{'entry_id': 1, 'tag': 'startup'},
         ]);
       },
     );
@@ -385,6 +385,56 @@ void main() {
         WHERE entry_id = ?
       ''', [entry.entryId]);
       expect(entryIndexRows.single['mood'], 'chill');
+    });
+
+    test('createEntry with transcript saves transcript and extracts tags', () async {
+      final sourceVoice = File('${tempDirectory.path}/voice_note.m4a');
+      await sourceVoice.writeAsBytes(<int>[1, 2, 3]);
+
+      final entry = await entryService.createEntry(
+        content: 'Recorded my thoughts #mindset',
+        voiceNote: sourceVoice,
+        transcript: 'Today I learned a lot about speech to text #learning',
+      );
+
+      expect(entry.entryId, 1);
+      expect(entry.type, 'voice');
+      expect(entry.transcript, 'Today I learned a lot about speech to text #learning');
+      expect(entry.tags, <String>['learning', 'mindset']);
+
+      final entryIndexRows = await databaseService.rawQuery('''
+        SELECT transcript
+        FROM entry_index
+        WHERE entry_id = ?
+      ''', [entry.entryId]);
+      expect(entryIndexRows.single['transcript'], 'Today I learned a lot about speech to text #learning');
+    });
+
+    test('editEntry updates transcript and re-extracts tags', () async {
+      final sourceVoice = File('${tempDirectory.path}/voice_note_edit.m4a');
+      await sourceVoice.writeAsBytes(<int>[1, 2, 3]);
+
+      final entry = await entryService.createEntry(
+        content: 'Original note #travel',
+        voiceNote: sourceVoice,
+        transcript: 'Heading to Seattle #excited',
+      );
+
+      final edited = await entryService.editEntry(
+        entryId: entry.entryId,
+        content: 'Updated content #travel',
+        transcript: 'Heading to Vancouver #excited #adventure',
+      );
+
+      expect(edited.transcript, 'Heading to Vancouver #excited #adventure');
+      expect(edited.tags, <String>['adventure', 'excited', 'travel']);
+
+      final entryIndexRows = await databaseService.rawQuery('''
+        SELECT transcript
+        FROM entry_index
+        WHERE entry_id = ?
+      ''', [entry.entryId]);
+      expect(entryIndexRows.single['transcript'], 'Heading to Vancouver #excited #adventure');
     });
   });
 }

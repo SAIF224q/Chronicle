@@ -8,6 +8,7 @@ This file tracks the status of features in the Chronicle application. AI agents 
 | :--- | :--- | :--- | :--- | :--- |
 | **Example Feature** | `not implemented` | 2026-06-23 | - | [example_feature.md](file:///d:/Chronicle/features/example_feature.md) |
 | **Custom Mood Theme Selector** | `implemented` | 2026-06-24 | 2026-06-24 | [custom_mood_theme_selector.md](file:///d:/Chronicle/features/custom_mood_theme_selector.md) |
+| **Voice-to-Text Transcript Previews** | `implemented` | 2026-06-25 | 2026-06-25 | [voice_to_text_transcript_previews.md](file:///d:/Chronicle/features/voice_to_text_transcript_previews.md) |
 
 ---
 

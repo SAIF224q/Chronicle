@@ -154,5 +154,11 @@ class DatabaseService {
         'ADD COLUMN mood TEXT NOT NULL DEFAULT \'none\'',
       );
     }
+    if (oldVersion < 6) {
+      await database.execute(
+        'ALTER TABLE ${ChronicleSchema.entryIndexTable} '
+        'ADD COLUMN transcript TEXT',
+      );
+    }
   }
 }

@@ -20,6 +20,7 @@ class EntryRecord {
     this.latitude,
     this.longitude,
     required this.mood,
+    this.transcript,
   });
 
   final int entryId;
@@ -32,6 +33,7 @@ class EntryRecord {
   final double? latitude;
   final double? longitude;
   final String mood;
+  final String? transcript;
 }
 
 class EntryService {
@@ -57,6 +59,7 @@ class EntryService {
     double? latitude,
     double? longitude,
     String mood = 'none',
+    String? transcript,
   }) async {
     final normalizedContent = content.trim();
     if (normalizedContent.isEmpty && image == null && voiceNote == null && locationName == null) {
@@ -71,7 +74,9 @@ class EntryService {
     }
 
     final createdAt = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    final tags = _extractTags(content);
+    final contentTags = _extractTags(content);
+    final transcriptTags = transcript != null ? _extractTags(transcript) : const <String>[];
+    final tags = (contentTags.toSet()..addAll(transcriptTags)).toList()..sort();
 
     try {
       return await _databaseService.transaction((transaction) async {
@@ -94,6 +99,7 @@ class EntryService {
               'latitude': latitude,
               'longitude': longitude,
               'mood': mood,
+              'transcript': transcript,
             },
             createdAt: createdAt,
           ),
@@ -113,6 +119,7 @@ class EntryService {
               'latitude': latitude,
               'longitude': longitude,
               'mood': mood,
+              'transcript': transcript,
             });
 
         for (final tag in tags) {
@@ -144,6 +151,7 @@ class EntryService {
           latitude: latitude,
           longitude: longitude,
           mood: mood,
+          transcript: transcript,
         );
       });
     } catch (_) {
@@ -158,6 +166,7 @@ class EntryService {
     required int entryId,
     required String content,
     String? mood,
+    String? transcript,
   }) async {
     if (entryId <= 0) {
       throw ArgumentError.value(
@@ -179,6 +188,7 @@ class EntryService {
           'media_path',
           'created_at',
           'mood',
+          'transcript',
         ],
         where: 'entry_id = ?',
         whereArgs: <Object?>[entryId],
@@ -195,6 +205,8 @@ class EntryService {
       final createdAt = existing['created_at']! as int;
       final existingMood = existing['mood'] as String? ?? 'none';
       final resolvedMood = mood ?? existingMood;
+      final existingTranscript = existing['transcript'] as String?;
+      final resolvedTranscript = transcript ?? existingTranscript;
       final normalizedContent = content.trim();
 
       if (type == 'text' && normalizedContent.isEmpty) {
@@ -208,6 +220,7 @@ class EntryService {
           payload: <String, Object?>{
             'content': normalizedContent,
             if (mood != null) 'mood': mood,
+            if (transcript != null) 'transcript': transcript,
           },
           createdAt: editedAt,
         ),
@@ -220,6 +233,7 @@ class EntryService {
           'content': normalizedContent,
           'updated_at': editedAt,
           if (mood != null) 'mood': mood,
+          if (transcript != null) 'transcript': transcript,
         },
         where: 'entry_id = ?',
         whereArgs: <Object?>[entryId],
@@ -234,10 +248,13 @@ class EntryService {
       final existingTags = existingTagRows
           .map((row) => row['tag']! as String)
           .toSet();
-      final newTags = _extractTags(content).toSet();
+      
+      final contentTags = _extractTags(content);
+      final transcriptTags = resolvedTranscript != null ? _extractTags(resolvedTranscript) : const <String>[];
+      final newTags = (contentTags.toSet()..addAll(transcriptTags)).toList()..sort();
 
-      final tagsToRemove = existingTags.difference(newTags).toList()..sort();
-      final tagsToAdd = newTags.difference(existingTags).toList()..sort();
+      final tagsToRemove = existingTags.difference(newTags.toSet()).toList()..sort();
+      final tagsToAdd = newTags.toSet().difference(existingTags).toList()..sort();
 
       for (final tag in tagsToRemove) {
         await _eventService.writeEvent(
@@ -280,9 +297,10 @@ class EntryService {
         type: type,
         content: normalizedContent,
         mediaPath: mediaPath,
-        tags: List<String>.of(newTags.toList()..sort(), growable: false),
+        tags: List<String>.of(newTags, growable: false),
         createdAt: createdAt,
         mood: resolvedMood,
+        transcript: resolvedTranscript,
       );
     });
   }

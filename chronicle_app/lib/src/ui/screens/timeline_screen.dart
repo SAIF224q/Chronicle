@@ -147,6 +147,8 @@ class _TimelineScreenState extends State<TimelineScreen> {
             entryId: entry.entryId,
             initialContent: entry.content,
             initialMood: entry.mood,
+            initialTranscript: entry.transcript,
+            isVoice: entry.type == 'voice',
           );
         },
       ),

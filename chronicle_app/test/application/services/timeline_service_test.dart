@@ -140,5 +140,29 @@ void main() {
       expect(entries[1].content, 'Chilling out');
       expect(entries[1].mood, 'chill');
     });
+
+    test('loadTimelineEntries searches within voice note transcripts', () async {
+      final sourceVoice = File('${tempDirectory.path}/voice_search.m4a');
+      await sourceVoice.writeAsBytes(<int>[1, 2, 3]);
+
+      await entryService.createEntry(
+        content: '',
+        voiceNote: sourceVoice,
+        transcript: 'Dancing in the rain with friends #vibes',
+      );
+      
+      await entryService.createEntry(
+        content: 'Dancing in the kitchen',
+      );
+
+      // Search for "rain" - should only match the voice note transcript
+      final searchResults = await timelineService.loadTimelineEntries(searchQuery: 'rain');
+      expect(searchResults, hasLength(1));
+      expect(searchResults.single.transcript, 'Dancing in the rain with friends #vibes');
+      
+      // Search for "dancing" - should match both content and transcript
+      final searchResults2 = await timelineService.loadTimelineEntries(searchQuery: 'dancing');
+      expect(searchResults2, hasLength(2));
+    });
   });
 }

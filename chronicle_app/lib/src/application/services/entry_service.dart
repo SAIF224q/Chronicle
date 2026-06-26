@@ -21,6 +21,7 @@ class EntryRecord {
     this.longitude,
     required this.mood,
     this.transcript,
+    this.unlockAt,
   });
 
   final int entryId;
@@ -34,6 +35,7 @@ class EntryRecord {
   final double? longitude;
   final String mood;
   final String? transcript;
+  final int? unlockAt;
 }
 
 class EntryService {
@@ -60,6 +62,7 @@ class EntryService {
     double? longitude,
     String mood = 'none',
     String? transcript,
+    int? unlockAt,
   }) async {
     final normalizedContent = content.trim();
     if (normalizedContent.isEmpty && image == null && voiceNote == null && locationName == null) {
@@ -100,6 +103,7 @@ class EntryService {
               'longitude': longitude,
               'mood': mood,
               'transcript': transcript,
+              'unlock_at': unlockAt,
             },
             createdAt: createdAt,
           ),
@@ -120,6 +124,7 @@ class EntryService {
               'longitude': longitude,
               'mood': mood,
               'transcript': transcript,
+              'unlock_at': unlockAt,
             });
 
         for (final tag in tags) {
@@ -152,6 +157,7 @@ class EntryService {
           longitude: longitude,
           mood: mood,
           transcript: transcript,
+          unlockAt: unlockAt,
         );
       });
     } catch (_) {
@@ -167,6 +173,7 @@ class EntryService {
     required String content,
     String? mood,
     String? transcript,
+    int? unlockAt,
   }) async {
     if (entryId <= 0) {
       throw ArgumentError.value(
@@ -189,6 +196,7 @@ class EntryService {
           'created_at',
           'mood',
           'transcript',
+          'unlock_at',
         ],
         where: 'entry_id = ?',
         whereArgs: <Object?>[entryId],
@@ -200,6 +208,11 @@ class EntryService {
       }
 
       final existing = existingRows.single;
+      final existingUnlockAt = existing['unlock_at'] as int?;
+      if (existingUnlockAt != null && existingUnlockAt > DateTime.now().millisecondsSinceEpoch) {
+        throw StateError('Cannot edit a locked time capsule.');
+      }
+
       final type = existing['type']! as String;
       final mediaPath = existing['media_path'] as String?;
       final createdAt = existing['created_at']! as int;
@@ -207,6 +220,7 @@ class EntryService {
       final resolvedMood = mood ?? existingMood;
       final existingTranscript = existing['transcript'] as String?;
       final resolvedTranscript = transcript ?? existingTranscript;
+      final resolvedUnlockAt = unlockAt ?? existingUnlockAt;
       final normalizedContent = content.trim();
 
       if (type == 'text' && normalizedContent.isEmpty) {
@@ -221,6 +235,7 @@ class EntryService {
             'content': normalizedContent,
             if (mood != null) 'mood': mood,
             if (transcript != null) 'transcript': transcript,
+            if (unlockAt != null) 'unlock_at': unlockAt,
           },
           createdAt: editedAt,
         ),
@@ -234,6 +249,7 @@ class EntryService {
           'updated_at': editedAt,
           if (mood != null) 'mood': mood,
           if (transcript != null) 'transcript': transcript,
+          if (unlockAt != null) 'unlock_at': unlockAt,
         },
         where: 'entry_id = ?',
         whereArgs: <Object?>[entryId],
@@ -301,6 +317,7 @@ class EntryService {
         createdAt: createdAt,
         mood: resolvedMood,
         transcript: resolvedTranscript,
+        unlockAt: resolvedUnlockAt,
       );
     });
   }

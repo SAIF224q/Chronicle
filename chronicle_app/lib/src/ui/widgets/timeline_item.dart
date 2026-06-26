@@ -1,10 +1,14 @@
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../application/services/timeline_service.dart';
 import 'audio_player_widget.dart';
+import 'confetti_wrapper.dart';
+import 'dashed_border_painter.dart';
 import 'vibe_selector_strip.dart';
 import 'voice_transcript_bubble.dart';
 
@@ -32,111 +36,151 @@ class TimelineItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final textColor = _getTextColor(context, entry.mood);
-    final secondaryTextColor = _getSecondaryTextColor(context, entry.mood);
+    final isUnlockedTimeCapsule = entry.unlockAt != null && !entry.isLocked;
+    final textColor = isUnlockedTimeCapsule ? Colors.white : _getTextColor(context, entry.mood);
+    final secondaryTextColor = isUnlockedTimeCapsule ? Colors.white70 : _getSecondaryTextColor(context, entry.mood);
+    final showBadge = entry.mood != 'none' && !entry.isLocked;
+
+    Widget bubbleContent = Container(
+      constraints: const BoxConstraints(maxWidth: 500),
+      margin: const EdgeInsets.only(bottom: 20),
+      decoration: _getBubbleDecoration(context, entry),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            if (entry.isHidden && !isRevealed) ...<Widget>[
+              _HiddenMessagePlaceholder(onTap: onHiddenPlaceholderTap),
+            ] else if (entry.isLocked) ...<Widget>[
+              _LockedTimeCapsulePlaceholder(
+                entry: entry,
+                textColor: textColor,
+                secondaryTextColor: secondaryTextColor,
+              ),
+            ] else ...<Widget>[
+              if (isUnlockedTimeCapsule) ...<Widget>[
+                Row(
+                  children: [
+                    Icon(Icons.lock_open, color: textColor, size: 16),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Unlocked Time Capsule',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: textColor,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Sent ${_formatCapsuleDate(entry.createdAt)} (${_getTimeAgo(entry.createdAt)})',
+                  style: TextStyle(
+                    color: secondaryTextColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+              if (entry.content.isNotEmpty) ...<Widget>[
+                Text(
+                  entry.content,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: textColor,
+                    fontSize: 16,
+                    height: 1.45,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+              if (entry.mediaFile != null) ...<Widget>[
+                const SizedBox(height: 12),
+                entry.type == 'voice'
+                    ? VoiceTranscriptBubble(
+                        audioFile: entry.mediaFile!,
+                        transcript: entry.transcript,
+                        mood: entry.mood,
+                        onTagTap: onTagTap,
+                      )
+                    : _TimelineImage(file: entry.mediaFile!, onTap: onImageTap),
+              ],
+              if (entry.locationName != null && entry.locationName!.isNotEmpty) ...<Widget>[
+                const SizedBox(height: 10),
+                _buildLocationChip(context),
+              ],
+              if (entry.tags.isNotEmpty) ...<Widget>[
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: entry.tags
+                      .map((tag) => _buildTagChip(context, tag))
+                      .toList(growable: false),
+                ),
+              ],
+            ],
+            const SizedBox(height: 12),
+            // Bottom metadata & action row
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Text(
+                  _formatTimestamp(entry.createdAt) + (entry.updatedAt != null ? ' (edited)' : ''),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: secondaryTextColor.withOpacity(0.8),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      onPressed: (entry.isHidden && !isRevealed) || entry.isLocked ? null : onEditTap,
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      iconSize: 16,
+                      tooltip: 'Edit entry',
+                      icon: const Icon(Icons.edit_outlined),
+                      color: secondaryTextColor.withOpacity(0.8),
+                    ),
+                    const SizedBox(width: 12),
+                    IconButton(
+                      onPressed: (entry.isHidden && !isRevealed) || entry.isLocked ? null : onDeleteTap,
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      iconSize: 16,
+                      tooltip: 'Delete message',
+                      icon: const Icon(Icons.delete_outline),
+                      color: secondaryTextColor.withOpacity(0.8),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (isUnlockedTimeCapsule) {
+      bubbleContent = ConfettiWrapper(child: bubbleContent);
+    }
 
     return Align(
       alignment: Alignment.centerLeft,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          Container(
-            constraints: const BoxConstraints(maxWidth: 500), // Slightly more compact chat feel
-            margin: const EdgeInsets.only(bottom: 20), // Better spacing between cards
-            decoration: _getBubbleDecoration(context, entry.mood),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  if (entry.isHidden && !isRevealed) ...<Widget>[
-                    _HiddenMessagePlaceholder(onTap: onHiddenPlaceholderTap),
-                  ] else ...<Widget>[
-                    if (entry.content.isNotEmpty) ...<Widget>[
-                      Text(
-                        entry.content,
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          color: textColor,
-                          fontSize: 16,
-                          height: 1.45,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                    if (entry.mediaFile != null) ...<Widget>[
-                      const SizedBox(height: 12),
-                      entry.type == 'voice'
-                          ? VoiceTranscriptBubble(
-                              audioFile: entry.mediaFile!,
-                              transcript: entry.transcript,
-                              mood: entry.mood,
-                              onTagTap: onTagTap,
-                            )
-                          : _TimelineImage(file: entry.mediaFile!, onTap: onImageTap),
-                    ],
-                    if (entry.locationName != null && entry.locationName!.isNotEmpty) ...<Widget>[
-                      const SizedBox(height: 10),
-                      _buildLocationChip(context, entry.mood),
-                    ],
-                    if (entry.tags.isNotEmpty) ...<Widget>[
-                      const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: entry.tags
-                            .map((tag) => _buildTagChip(context, tag, entry.mood))
-                            .toList(growable: false),
-                      ),
-                    ],
-                  ],
-                  const SizedBox(height: 12),
-                  // Bottom metadata & action row
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Text(
-                        _formatTimestamp(entry.createdAt) + (entry.updatedAt != null ? ' (edited)' : ''),
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: secondaryTextColor.withOpacity(0.8),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            onPressed: entry.isHidden && !isRevealed ? null : onEditTap,
-                            visualDensity: VisualDensity.compact,
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                            iconSize: 16,
-                            tooltip: 'Edit entry',
-                            icon: const Icon(Icons.edit_outlined),
-                            color: secondaryTextColor.withOpacity(0.8),
-                          ),
-                          const SizedBox(width: 12),
-                          IconButton(
-                            onPressed: entry.isHidden && !isRevealed ? null : onDeleteTap,
-                            visualDensity: VisualDensity.compact,
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                            iconSize: 16,
-                            tooltip: 'Delete message',
-                            icon: const Icon(Icons.delete_outline),
-                            color: secondaryTextColor.withOpacity(0.8),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-          _buildMoodBadge(context, entry.mood),
+          bubbleContent,
+          if (showBadge) _buildMoodBadge(context, entry.mood),
         ],
       ),
     );
@@ -186,14 +230,15 @@ class TimelineItem extends StatelessWidget {
     }
   }
 
-  Widget _buildLocationChip(BuildContext context, String mood) {
+  Widget _buildLocationChip(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isSpecialMood = mood != 'none';
+    final isSpecialMood = entry.mood != 'none';
+    final isUnlockedTimeCapsule = entry.unlockAt != null && !entry.isLocked;
 
-    final chipBgColor = isSpecialMood
-        ? (isDark ? Colors.white.withOpacity(0.12) : Colors.black.withOpacity(0.06))
+    final chipBgColor = (isSpecialMood || isUnlockedTimeCapsule)
+        ? (isDark || isUnlockedTimeCapsule ? Colors.white.withOpacity(0.12) : Colors.black.withOpacity(0.06))
         : null;
-    final chipTextColor = _getTextColor(context, mood);
+    final chipTextColor = isUnlockedTimeCapsule ? Colors.white : _getTextColor(context, entry.mood);
 
     return ActionChip(
       avatar: Icon(
@@ -214,14 +259,15 @@ class TimelineItem extends StatelessWidget {
     );
   }
 
-  Widget _buildTagChip(BuildContext context, String tag, String mood) {
+  Widget _buildTagChip(BuildContext context, String tag) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isSpecialMood = mood != 'none';
+    final isSpecialMood = entry.mood != 'none';
+    final isUnlockedTimeCapsule = entry.unlockAt != null && !entry.isLocked;
 
-    final chipBgColor = isSpecialMood
-        ? (isDark ? Colors.white.withOpacity(0.12) : Colors.black.withOpacity(0.06))
+    final chipBgColor = (isSpecialMood || isUnlockedTimeCapsule)
+        ? (isDark || isUnlockedTimeCapsule ? Colors.white.withOpacity(0.12) : Colors.black.withOpacity(0.06))
         : null;
-    final chipTextColor = _getTextColor(context, mood);
+    final chipTextColor = isUnlockedTimeCapsule ? Colors.white : _getTextColor(context, entry.mood);
 
     return ActionChip(
       label: Text('#$tag'),
@@ -292,7 +338,8 @@ class TimelineItem extends StatelessWidget {
     );
   }
 
-  BoxDecoration _getBubbleDecoration(BuildContext context, String mood) {
+  BoxDecoration _getBubbleDecoration(BuildContext context, TimelineEntry entry) {
+    final mood = entry.mood;
     final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -303,6 +350,39 @@ class TimelineItem extends StatelessWidget {
       bottomRight: const Radius.circular(24),
       bottomLeft: Radius.circular(mood == 'none' ? 24 : 6), // chat bubble notch
     );
+
+    if (entry.isLocked) {
+      return BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.03),
+        borderRadius: bubbleRadius,
+      );
+    }
+
+    final isTimeCapsule = entry.unlockAt != null;
+    final isUnlocked = isTimeCapsule && !entry.isLocked;
+
+    if (isUnlocked) {
+      return BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFF8B5CF6),
+            Colors.deepPurple,
+            Colors.pinkAccent,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: bubbleRadius,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.deepPurple.withOpacity(isDark ? 0.35 : 0.2),
+            blurRadius: 12,
+            spreadRadius: 1,
+            offset: const Offset(0, 3),
+          )
+        ],
+      );
+    }
 
     if (mood == 'none') {
       return BoxDecoration(
@@ -452,6 +532,36 @@ class TimelineItem extends StatelessWidget {
       // Ignore map launching errors
     }
   }
+
+  String _formatCapsuleDate(DateTime timestamp) {
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    return '${months[timestamp.month - 1]} ${timestamp.day}, ${timestamp.year}';
+  }
+
+  String _getTimeAgo(DateTime date) {
+    final diff = DateTime.now().difference(date);
+    if (diff.inDays >= 365) {
+      final years = diff.inDays ~/ 365;
+      return '$years ${years == 1 ? "year" : "years"} ago';
+    } else if (diff.inDays >= 30) {
+      final months = diff.inDays ~/ 30;
+      return '$months ${months == 1 ? "month" : "months"} ago';
+    } else if (diff.inDays >= 7) {
+      final weeks = diff.inDays ~/ 7;
+      return '$weeks ${weeks == 1 ? "week" : "weeks"} ago';
+    } else if (diff.inDays >= 1) {
+      return '${diff.inDays} ${diff.inDays == 1 ? "day" : "days"} ago';
+    } else if (diff.inHours >= 1) {
+      return '${diff.inHours} ${diff.inHours == 1 ? "hour" : "hours"} ago';
+    } else if (diff.inMinutes >= 1) {
+      return '${diff.inMinutes} ${diff.inMinutes == 1 ? "minute" : "minutes"} ago';
+    } else {
+      return 'just now';
+    }
+  }
 }
 
 class _HiddenMessagePlaceholder extends StatelessWidget {
@@ -570,5 +680,161 @@ class _MissingMediaPlaceholder extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _LockedTimeCapsulePlaceholder extends StatefulWidget {
+  const _LockedTimeCapsulePlaceholder({
+    required this.entry,
+    required this.textColor,
+    required this.secondaryTextColor,
+  });
+
+  final TimelineEntry entry;
+  final Color textColor;
+  final Color secondaryTextColor;
+
+  @override
+  State<_LockedTimeCapsulePlaceholder> createState() => _LockedTimeCapsulePlaceholderState();
+}
+
+class _LockedTimeCapsulePlaceholderState extends State<_LockedTimeCapsulePlaceholder>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _shakeController;
+  late final Animation<double> _shakeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _shakeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _shakeAnimation = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 0.05), weight: 1),
+      TweenSequenceItem(tween: Tween(begin: 0.05, end: -0.05), weight: 2),
+      TweenSequenceItem(tween: Tween(begin: -0.05, end: 0.05), weight: 2),
+      TweenSequenceItem(tween: Tween(begin: 0.05, end: 0.0), weight: 1),
+    ]).animate(CurvedAnimation(parent: _shakeController, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _shakeController.dispose();
+    super.dispose();
+  }
+
+  void _onTap() {
+    _shakeController.forward(from: 0.0);
+    HapticFeedback.lightImpact();
+    
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Row(
+          children: [
+            Text('🤫 ', style: TextStyle(fontSize: 16)),
+            Expanded(
+              child: Text(
+                'No peeking! Patience is a vibe',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+        backgroundColor: Colors.purple.shade900.withOpacity(0.9),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    
+    final unlockDate = DateTime.fromMillisecondsSinceEpoch(widget.entry.unlockAt!);
+    final diff = unlockDate.difference(DateTime.now());
+    String countdownStr = '';
+    if (diff.inDays >= 1) {
+      countdownStr = 'in ${diff.inDays} ${diff.inDays == 1 ? "day" : "days"}';
+    } else if (diff.inHours >= 1) {
+      countdownStr = 'in ${diff.inHours} ${diff.inHours == 1 ? "hour" : "hours"}';
+    } else if (diff.inMinutes >= 1) {
+      countdownStr = 'in ${diff.inMinutes} ${diff.inMinutes == 1 ? "minute" : "minutes"}';
+    } else {
+      countdownStr = 'in a few seconds';
+    }
+
+    final monthsText = _formatCapsuleDate(unlockDate);
+
+    return RotationTransition(
+      turns: _shakeAnimation,
+      child: GestureDetector(
+        onTap: _onTap,
+        child: CustomPaint(
+          painter: DashedBorderPainter(
+            color: const Color(0xFFC084FC),
+            strokeWidth: 2.0,
+            dashPattern: const [6, 4],
+            radius: 24,
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+                width: double.infinity,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFC084FC).withOpacity(0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.lock_outline,
+                        color: Color(0xFFC084FC),
+                        size: 28,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      '🔒 Sealed Time Capsule',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Unlocks on $monthsText ($countdownStr)',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: isDark ? Colors.white60 : Colors.black54,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatCapsuleDate(DateTime timestamp) {
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    return '${months[timestamp.month - 1]} ${timestamp.day}, ${timestamp.year}';
   }
 }

@@ -164,5 +164,30 @@ void main() {
       final searchResults2 = await timelineService.loadTimelineEntries(searchQuery: 'dancing');
       expect(searchResults2, hasLength(2));
     });
+
+    test('loadTimelineEntries text search ignores locked entries', () async {
+      final nowMs = DateTime.now().millisecondsSinceEpoch;
+      final unlockFuture = nowMs + 1000 * 60 * 60; // 1 hour in future
+
+      await entryService.createEntry(
+        content: 'Secret locked time capsule content',
+        unlockAt: unlockFuture,
+      );
+
+      await entryService.createEntry(
+        content: 'Unlocked visible content',
+      );
+
+      // Searching for "content" should only match the unlocked one
+      final searchResults = await timelineService.loadTimelineEntries(searchQuery: 'content');
+      expect(searchResults, hasLength(1));
+      expect(searchResults.single.content, 'Unlocked visible content');
+      
+      // Loading timeline without search query should return both, but one is locked
+      final allEntries = await timelineService.loadTimelineEntries(sortByOldest: true);
+      expect(allEntries, hasLength(2));
+      expect(allEntries[0].isLocked, isTrue);
+      expect(allEntries[1].isLocked, isFalse);
+    });
   });
 }

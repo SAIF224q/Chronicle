@@ -21,6 +21,7 @@ class TimelineEntry {
     this.longitude,
     required this.mood,
     this.transcript,
+    this.unlockAt,
   });
 
   final int entryId;
@@ -37,6 +38,9 @@ class TimelineEntry {
   final double? longitude;
   final String mood;
   final String? transcript;
+  final int? unlockAt;
+
+  bool get isLocked => unlockAt != null && unlockAt! > DateTime.now().millisecondsSinceEpoch;
 }
 
 class TimelineService {
@@ -92,6 +96,7 @@ class TimelineService {
             longitude: row.longitude,
             mood: row.mood,
             transcript: row.transcript,
+            unlockAt: row.unlockAt,
           );
         })
         .toList(growable: false);

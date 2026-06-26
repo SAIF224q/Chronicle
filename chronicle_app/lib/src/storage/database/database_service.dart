@@ -160,5 +160,11 @@ class DatabaseService {
         'ADD COLUMN transcript TEXT',
       );
     }
+    if (oldVersion < 7) {
+      await database.execute(
+        'ALTER TABLE ${ChronicleSchema.entryIndexTable} '
+        'ADD COLUMN unlock_at INTEGER',
+      );
+    }
   }
 }

@@ -436,5 +436,37 @@ void main() {
       ''', [entry.entryId]);
       expect(entryIndexRows.single['transcript'], 'Heading to Vancouver #excited #adventure');
     });
+
+    test('createEntry seals entry as time capsule with unlockAt', () async {
+      final unlockTime = DateTime.now().millisecondsSinceEpoch + 1000 * 60 * 60;
+      final entry = await entryService.createEntry(
+        content: 'Reflections for my future self',
+        unlockAt: unlockTime,
+      );
+
+      expect(entry.entryId, isNotNull);
+      expect(entry.unlockAt, unlockTime);
+
+      final indexRows = await databaseService.rawQuery('''
+        SELECT unlock_at FROM entry_index WHERE entry_id = ?
+      ''', [entry.entryId]);
+      expect(indexRows.single['unlock_at'], unlockTime);
+    });
+
+    test('editEntry throws StateError when attempting to edit a locked time capsule', () async {
+      final unlockTime = DateTime.now().millisecondsSinceEpoch + 1000 * 60 * 60;
+      final entry = await entryService.createEntry(
+        content: 'Reflections for my future self',
+        unlockAt: unlockTime,
+      );
+
+      expect(
+        () => entryService.editEntry(
+          entryId: entry.entryId,
+          content: 'Sneaky edit attempts',
+        ),
+        throwsStateError,
+      );
+    });
   });
 }

@@ -10,16 +10,12 @@ class EditEntryScreen extends StatefulWidget {
     required this.entryId,
     required this.initialContent,
     this.initialMood = 'none',
-    this.initialTranscript,
-    this.isVoice = false,
   });
 
   final EntryService entryService;
   final int entryId;
   final String initialContent;
   final String initialMood;
-  final String? initialTranscript;
-  final bool isVoice;
 
   @override
   State<EditEntryScreen> createState() => _EditEntryScreenState();
@@ -27,7 +23,6 @@ class EditEntryScreen extends StatefulWidget {
 
 class _EditEntryScreenState extends State<EditEntryScreen> {
   late final TextEditingController _contentController;
-  late final TextEditingController _transcriptController;
   bool _isSaving = false;
   late String _selectedMood;
 
@@ -35,14 +30,12 @@ class _EditEntryScreenState extends State<EditEntryScreen> {
   void initState() {
     super.initState();
     _contentController = TextEditingController(text: widget.initialContent);
-    _transcriptController = TextEditingController(text: widget.initialTranscript);
     _selectedMood = widget.initialMood;
   }
 
   @override
   void dispose() {
     _contentController.dispose();
-    _transcriptController.dispose();
     super.dispose();
   }
 
@@ -60,7 +53,6 @@ class _EditEntryScreenState extends State<EditEntryScreen> {
         entryId: widget.entryId,
         content: _contentController.text,
         mood: _selectedMood,
-        transcript: widget.isVoice ? _transcriptController.text : null,
       );
       if (!mounted) {
         return;
@@ -142,49 +134,7 @@ class _EditEntryScreenState extends State<EditEntryScreen> {
               ),
             ),
           ),
-          if (widget.isVoice) ...[
-            const SizedBox(height: 20),
-            Text(
-              'Edit Transcript',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-            ),
-            const SizedBox(height: 8),
-            Container(
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1A1715) : colorScheme.surface,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: isDark ? const Color(0xFF2C2825) : colorScheme.outlineVariant.withOpacity(0.8),
-                  width: 1.2,
-                ),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: TextField(
-                controller: _transcriptController,
-                maxLines: 6,
-                minLines: 3,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: colorScheme.onSurface,
-                  fontStyle: FontStyle.italic,
-                  height: 1.4,
-                ),
-                decoration: InputDecoration(
-                  hintText: 'Voice transcript will appear here...',
-                  hintStyle: TextStyle(
-                    color: colorScheme.onSurfaceVariant.withOpacity(0.4),
-                  ),
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-            ),
-          ],
+
           const SizedBox(height: 20),
           VibeSelectorStrip(
             selectedMood: _selectedMood,

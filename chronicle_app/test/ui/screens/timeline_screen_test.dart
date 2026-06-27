@@ -75,7 +75,6 @@ class _RecordingEntryService extends EntryService {
     double? latitude,
     double? longitude,
     String mood = 'none',
-    String? transcript,
     int? unlockAt,
   }) async {
     createdContents.add(content);

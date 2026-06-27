@@ -10,7 +10,6 @@ import 'audio_player_widget.dart';
 import 'confetti_wrapper.dart';
 import 'dashed_border_painter.dart';
 import 'vibe_selector_strip.dart';
-import 'voice_transcript_bubble.dart';
 
 class TimelineItem extends StatelessWidget {
   const TimelineItem({
@@ -100,12 +99,7 @@ class TimelineItem extends StatelessWidget {
               if (entry.mediaFile != null) ...<Widget>[
                 const SizedBox(height: 12),
                 entry.type == 'voice'
-                    ? VoiceTranscriptBubble(
-                        audioFile: entry.mediaFile!,
-                        transcript: entry.transcript,
-                        mood: entry.mood,
-                        onTagTap: onTagTap,
-                      )
+                    ? AudioPlayerWidget(audioFile: entry.mediaFile!)
                     : _TimelineImage(file: entry.mediaFile!, onTap: onImageTap),
               ],
               if (entry.locationName != null && entry.locationName!.isNotEmpty) ...<Widget>[

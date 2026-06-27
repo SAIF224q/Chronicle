@@ -20,7 +20,6 @@ class EntryRecord {
     this.latitude,
     this.longitude,
     required this.mood,
-    this.transcript,
     this.unlockAt,
   });
 
@@ -34,7 +33,6 @@ class EntryRecord {
   final double? latitude;
   final double? longitude;
   final String mood;
-  final String? transcript;
   final int? unlockAt;
 }
 
@@ -61,7 +59,6 @@ class EntryService {
     double? latitude,
     double? longitude,
     String mood = 'none',
-    String? transcript,
     int? unlockAt,
   }) async {
     final normalizedContent = content.trim();
@@ -78,8 +75,7 @@ class EntryService {
 
     final createdAt = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     final contentTags = _extractTags(content);
-    final transcriptTags = transcript != null ? _extractTags(transcript) : const <String>[];
-    final tags = (contentTags.toSet()..addAll(transcriptTags)).toList()..sort();
+    final tags = contentTags..sort();
 
     try {
       return await _databaseService.transaction((transaction) async {
@@ -102,7 +98,6 @@ class EntryService {
               'latitude': latitude,
               'longitude': longitude,
               'mood': mood,
-              'transcript': transcript,
               'unlock_at': unlockAt,
             },
             createdAt: createdAt,
@@ -123,7 +118,6 @@ class EntryService {
               'latitude': latitude,
               'longitude': longitude,
               'mood': mood,
-              'transcript': transcript,
               'unlock_at': unlockAt,
             });
 
@@ -156,7 +150,6 @@ class EntryService {
           latitude: latitude,
           longitude: longitude,
           mood: mood,
-          transcript: transcript,
           unlockAt: unlockAt,
         );
       });
@@ -172,7 +165,6 @@ class EntryService {
     required int entryId,
     required String content,
     String? mood,
-    String? transcript,
     int? unlockAt,
   }) async {
     if (entryId <= 0) {
@@ -195,7 +187,6 @@ class EntryService {
           'media_path',
           'created_at',
           'mood',
-          'transcript',
           'unlock_at',
         ],
         where: 'entry_id = ?',
@@ -218,8 +209,6 @@ class EntryService {
       final createdAt = existing['created_at']! as int;
       final existingMood = existing['mood'] as String? ?? 'none';
       final resolvedMood = mood ?? existingMood;
-      final existingTranscript = existing['transcript'] as String?;
-      final resolvedTranscript = transcript ?? existingTranscript;
       final resolvedUnlockAt = unlockAt ?? existingUnlockAt;
       final normalizedContent = content.trim();
 
@@ -234,7 +223,6 @@ class EntryService {
           payload: <String, Object?>{
             'content': normalizedContent,
             if (mood != null) 'mood': mood,
-            if (transcript != null) 'transcript': transcript,
             if (unlockAt != null) 'unlock_at': unlockAt,
           },
           createdAt: editedAt,
@@ -248,7 +236,6 @@ class EntryService {
           'content': normalizedContent,
           'updated_at': editedAt,
           if (mood != null) 'mood': mood,
-          if (transcript != null) 'transcript': transcript,
           if (unlockAt != null) 'unlock_at': unlockAt,
         },
         where: 'entry_id = ?',
@@ -266,8 +253,7 @@ class EntryService {
           .toSet();
       
       final contentTags = _extractTags(content);
-      final transcriptTags = resolvedTranscript != null ? _extractTags(resolvedTranscript) : const <String>[];
-      final newTags = (contentTags.toSet()..addAll(transcriptTags)).toList()..sort();
+      final newTags = contentTags..sort();
 
       final tagsToRemove = existingTags.difference(newTags.toSet()).toList()..sort();
       final tagsToAdd = newTags.toSet().difference(existingTags).toList()..sort();
@@ -316,7 +302,6 @@ class EntryService {
         tags: List<String>.of(newTags, growable: false),
         createdAt: createdAt,
         mood: resolvedMood,
-        transcript: resolvedTranscript,
         unlockAt: resolvedUnlockAt,
       );
     });

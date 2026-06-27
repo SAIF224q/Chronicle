@@ -387,56 +387,6 @@ void main() {
       expect(entryIndexRows.single['mood'], 'chill');
     });
 
-    test('createEntry with transcript saves transcript and extracts tags', () async {
-      final sourceVoice = File('${tempDirectory.path}/voice_note.m4a');
-      await sourceVoice.writeAsBytes(<int>[1, 2, 3]);
-
-      final entry = await entryService.createEntry(
-        content: 'Recorded my thoughts #mindset',
-        voiceNote: sourceVoice,
-        transcript: 'Today I learned a lot about speech to text #learning',
-      );
-
-      expect(entry.entryId, 1);
-      expect(entry.type, 'voice');
-      expect(entry.transcript, 'Today I learned a lot about speech to text #learning');
-      expect(entry.tags, <String>['learning', 'mindset']);
-
-      final entryIndexRows = await databaseService.rawQuery('''
-        SELECT transcript
-        FROM entry_index
-        WHERE entry_id = ?
-      ''', [entry.entryId]);
-      expect(entryIndexRows.single['transcript'], 'Today I learned a lot about speech to text #learning');
-    });
-
-    test('editEntry updates transcript and re-extracts tags', () async {
-      final sourceVoice = File('${tempDirectory.path}/voice_note_edit.m4a');
-      await sourceVoice.writeAsBytes(<int>[1, 2, 3]);
-
-      final entry = await entryService.createEntry(
-        content: 'Original note #travel',
-        voiceNote: sourceVoice,
-        transcript: 'Heading to Seattle #excited',
-      );
-
-      final edited = await entryService.editEntry(
-        entryId: entry.entryId,
-        content: 'Updated content #travel',
-        transcript: 'Heading to Vancouver #excited #adventure',
-      );
-
-      expect(edited.transcript, 'Heading to Vancouver #excited #adventure');
-      expect(edited.tags, <String>['adventure', 'excited', 'travel']);
-
-      final entryIndexRows = await databaseService.rawQuery('''
-        SELECT transcript
-        FROM entry_index
-        WHERE entry_id = ?
-      ''', [entry.entryId]);
-      expect(entryIndexRows.single['transcript'], 'Heading to Vancouver #excited #adventure');
-    });
-
     test('createEntry seals entry as time capsule with unlockAt', () async {
       final unlockTime = DateTime.now().millisecondsSinceEpoch + 1000 * 60 * 60;
       final entry = await entryService.createEntry(

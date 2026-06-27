@@ -14,7 +14,6 @@ class TimelineEntryRow {
     this.latitude,
     this.longitude,
     required this.mood,
-    this.transcript,
     this.unlockAt,
   });
 
@@ -30,7 +29,6 @@ class TimelineEntryRow {
   final double? latitude;
   final double? longitude;
   final String mood;
-  final String? transcript;
   final int? unlockAt;
 }
 
@@ -62,10 +60,9 @@ class TimelineQueryService {
 
     if (searchQuery != null && searchQuery.trim().isNotEmpty) {
       whereClauses.add(
-        '((content LIKE ? OR transcript LIKE ?) AND (unlock_at IS NULL OR unlock_at <= ?))',
+        '((content LIKE ?) AND (unlock_at IS NULL OR unlock_at <= ?))',
       );
       final bindQuery = '%${searchQuery.trim()}%';
-      whereArgs.add(bindQuery);
       whereArgs.add(bindQuery);
       whereArgs.add(DateTime.now().millisecondsSinceEpoch);
     }
@@ -91,7 +88,7 @@ class TimelineQueryService {
     final entryRows = await _databaseService.rawQuery(
       '''
       SELECT entry_id, type, content, media_path, created_at,
-             updated_at, hidden, location_name, latitude, longitude, mood, transcript, unlock_at
+             updated_at, hidden, location_name, latitude, longitude, mood, unlock_at
       FROM entry_index
       WHERE $whereString
       ORDER BY $orderBy
@@ -135,7 +132,6 @@ class TimelineQueryService {
             latitude: row['latitude'] as double?,
             longitude: row['longitude'] as double?,
             mood: row['mood'] as String? ?? 'none',
-            transcript: row['transcript'] as String?,
             unlockAt: row['unlock_at'] as int?,
           );
         })

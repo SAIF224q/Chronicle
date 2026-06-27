@@ -20,7 +20,6 @@ class TimelineEntry {
     this.latitude,
     this.longitude,
     required this.mood,
-    this.transcript,
     this.unlockAt,
   });
 
@@ -37,7 +36,6 @@ class TimelineEntry {
   final double? latitude;
   final double? longitude;
   final String mood;
-  final String? transcript;
   final int? unlockAt;
 
   bool get isLocked => unlockAt != null && unlockAt! > DateTime.now().millisecondsSinceEpoch;
@@ -95,7 +93,6 @@ class TimelineService {
             latitude: row.latitude,
             longitude: row.longitude,
             mood: row.mood,
-            transcript: row.transcript,
             unlockAt: row.unlockAt,
           );
         })

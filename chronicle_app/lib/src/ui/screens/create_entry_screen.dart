@@ -6,7 +6,6 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../application/services/entry_service.dart';
 import '../../application/services/location_service.dart';
-import '../../application/services/speech_to_text_service.dart';
 import '../widgets/audio_recorder_widget.dart';
 import '../widgets/vibe_selector_strip.dart';
 
@@ -35,9 +34,6 @@ class _CreateEntryScreenState extends State<CreateEntryScreen> {
   double? _latitude;
   double? _longitude;
   String _selectedMood = 'none';
-  String? _voiceTranscript;
-  bool _isTranscribing = false;
-  Future<String?>? _transcriptionFuture;
   DateTime? _timeCapsuleUnlockDate;
 
   @override
@@ -56,31 +52,6 @@ class _CreateEntryScreenState extends State<CreateEntryScreen> {
         // Ignore any errors during cleanup
       }
     }
-  }
-
-  void _startTranscription(File file) {
-    setState(() {
-      _isTranscribing = true;
-      _voiceTranscript = null;
-    });
-
-    final speechService = SpeechToTextService();
-    _transcriptionFuture = speechService.transcribe(file).then((transcript) {
-      if (mounted) {
-        setState(() {
-          _voiceTranscript = transcript;
-          _isTranscribing = false;
-        });
-      }
-      return transcript;
-    }).catchError((_) {
-      if (mounted) {
-        setState(() {
-          _isTranscribing = false;
-        });
-      }
-      return null;
-    });
   }
 
   Future<void> _attachImage() async {
@@ -105,11 +76,6 @@ class _CreateEntryScreenState extends State<CreateEntryScreen> {
     });
 
     try {
-      String? transcript = _voiceTranscript;
-      if (_recordedVoiceFile != null && transcript == null && _transcriptionFuture != null) {
-        transcript = await _transcriptionFuture;
-      }
-
       await widget.entryService.createEntry(
         content: _contentController.text,
         image: _selectedImage,
@@ -118,7 +84,6 @@ class _CreateEntryScreenState extends State<CreateEntryScreen> {
         latitude: _latitude,
         longitude: _longitude,
         mood: _selectedMood,
-        transcript: transcript,
         unlockAt: _timeCapsuleUnlockDate?.millisecondsSinceEpoch,
       );
       if (!mounted) {
@@ -328,22 +293,9 @@ class _CreateEntryScreenState extends State<CreateEntryScreen> {
                         onAudioRecorded: (file) {
                           setState(() {
                             _recordedVoiceFile = file;
-                            if (file == null) {
-                              _voiceTranscript = null;
-                              _transcriptionFuture = null;
-                            }
                           });
-                          if (file != null) {
-                            _startTranscription(file);
-                          }
                         },
                       ),
-                      const SizedBox(height: 16),
-                    ],
-
-                    // Voice Transcript Preview panel
-                    if (_recordedVoiceFile != null) ...[
-                      _buildTranscriptPreviewPanel(),
                       const SizedBox(height: 16),
                     ],
 
@@ -364,125 +316,7 @@ class _CreateEntryScreenState extends State<CreateEntryScreen> {
               _buildAttachmentToolbar(context),
             ],
           ),
-          _buildGlassmorphicOverlay(),
         ],
-      ),
-    );
-  }
-
-  Widget _buildTranscriptPreviewPanel() {
-    final colorScheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Card(
-      elevation: 0,
-      color: isDark ? const Color(0xFF1E1A17) : colorScheme.surfaceContainerLow,
-      shape: RoundedRectangleBorder(
-        side: BorderSide(
-          color: isDark ? const Color(0xFF2C2825) : colorScheme.outlineVariant.withOpacity(0.8),
-        ),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.description_outlined, 
-                  size: 18, 
-                  color: isDark ? Colors.white70 : colorScheme.onSurfaceVariant,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Voice Transcript Preview',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white70 : colorScheme.onSurface,
-                      ),
-                ),
-                const Spacer(),
-                if (_isTranscribing)
-                  const SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                else
-                  const Icon(Icons.check_circle_outline, color: Colors.green, size: 16),
-              ],
-            ),
-            const SizedBox(height: 12),
-            if (_isTranscribing)
-              Text(
-                'Transcribing voice note... 🎙️',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontStyle: FontStyle.italic,
-                      color: isDark ? Colors.white54 : colorScheme.onSurfaceVariant.withOpacity(0.7),
-                    ),
-              )
-            else
-              TextFormField(
-                initialValue: _voiceTranscript,
-                maxLines: 3,
-                minLines: 1,
-                decoration: const InputDecoration(
-                  hintText: 'Voice transcript will appear here...',
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.zero,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                ),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontStyle: FontStyle.italic,
-                      color: isDark ? Colors.white70 : colorScheme.onSurface,
-                    ),
-                onChanged: (text) {
-                  _voiceTranscript = text;
-                },
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildGlassmorphicOverlay() {
-    if (!_isSaving || _recordedVoiceFile == null) {
-      return const SizedBox.shrink();
-    }
-
-    return Positioned.fill(
-      child: Container(
-        color: Colors.black.withOpacity(0.35),
-        child: Center(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface.withOpacity(0.9),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 10,
-                )
-              ],
-            ),
-            child: const Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 16),
-                Text(
-                  'Transcribing your voice... 🎙️',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                ),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }

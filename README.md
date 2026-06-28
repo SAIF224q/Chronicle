@@ -1,15 +1,33 @@
 # Chronicle
 
-Chronicle is a project designed to manage and track events and activities effectively. It provides a structured way to record information, allowing users to easily access and manipulate their data.
+Chronicle is a local-first journaling application built with Flutter. It helps users capture daily notes, voice recordings, location metadata, tags, and media in a secure offline-friendly app.
 
-## Features
-- User-friendly interface for data entry
-- Advanced search capabilities
-- Data visualization options
-- Export and import functionality
-- Tag-based organization (hashtags)
+## What it is
 
-## Data Storage
+- A Flutter app for managing journal entries and activity records
+- Local storage based on SQLite for offline-first usage
+- Support for text entries, image media, audio recordings, tags, and location metadata
+- Designed for mobile and desktop platforms supported by Flutter
+
+## Key features
+
+- Create and edit journal entries
+- Attach images and media
+- Record and playback audio
+- Add tags and search entries quickly
+- Export and backup data as a ZIP archive
+- Local SQLite storage with event auditing and current entry indexing
+
+## Project structure
+
+- `chronicle_app/` — Flutter application source and configuration
+- `chronicle_app/lib/` — Flutter Dart source code
+- `chronicle_app/android/` — Android build files
+- `chronicle_app/ios/` — iOS build files
+- `docs/` — design docs, architecture guides, and project specifications
+- `features/` — feature specifications and design drafts
+
+## Data storage
 
 Chronicle uses **SQLite** (embedded database) for local-first data storage. Your data is stored entirely on your device.
 
@@ -57,27 +75,54 @@ The exported file (`chronicle_export_{timestamp}.zip`) contains:
 
 This ensures you have a backup of your data that you can access even if the app is deleted.
 
-## Installation
-To install Chronicle, follow these steps:
+## Getting started
+
+### Prerequisites
+
+- Flutter SDK installed and configured
+- A connected device, emulator, or desktop support enabled
+
+### Setup
+
 1. Clone the repository:
-   ```
+   ```bash
    git clone https://github.com/SAIF224q/Chronicle.git
    ```
-2. Navigate into the directory:
+2. Open the Flutter app folder:
+   ```bash
+   cd Chronicle/chronicle_app
    ```
-   cd Chronicle
-   ```
-3. Install dependencies:
-   ```
-   npm install
+3. Fetch Flutter dependencies:
+   ```bash
+   flutter pub get
    ```
 
-## Usage
-After installation, you can start the project:
-```bash
-npm start
-```
-Visit `http://localhost:3000` to view the application.
+### Run the app
+
+- Run on the default device:
+  ```bash
+  flutter run
+  ```
+- Run on a specific platform, for example Android:
+  ```bash
+  flutter run -d android
+  ```
+
+## Development notes
+
+- Package name: `chronicle_app`
+- Version: `1.0.0+1`
+- Key dependencies:
+  - `sqflite`
+  - `path_provider`
+  - `image_picker`
+  - `archive`
+  - `share_plus`
+  - `record`
+  - `audioplayers`
+  - `url_launcher`
+  - `geolocator`
+  - `google_fonts`
 
 ## Contributing
 Contributions are welcome! Please read the [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to contribute to this project.

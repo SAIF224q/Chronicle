@@ -137,4 +137,37 @@ class TimelineQueryService {
         })
         .toList(growable: false);
   }
+
+  Future<List<Map<String, Object?>>> fetchDailyMoodCounts(
+    int startTimestampSeconds,
+    int endTimestampSeconds,
+  ) async {
+    return await _databaseService.rawQuery(
+      '''
+      SELECT 
+        DATE(created_at, 'unixepoch', 'localtime') as entry_date,
+        mood,
+        COUNT(mood) as mood_count
+      FROM entry_index
+      WHERE archived = 0 
+        AND created_at >= ? 
+        AND created_at <= ?
+      GROUP BY entry_date, mood
+      ORDER BY entry_date ASC, mood_count DESC
+      ''',
+      <Object?>[startTimestampSeconds, endTimestampSeconds],
+    );
+  }
+
+  Future<List<String>> fetchActiveJournalingDates() async {
+    final rows = await _databaseService.rawQuery(
+      '''
+      SELECT DISTINCT DATE(created_at, 'unixepoch', 'localtime') as entry_date
+      FROM entry_index
+      WHERE archived = 0
+      ORDER BY entry_date DESC
+      ''',
+    );
+    return rows.map((row) => row['entry_date']! as String).toList();
+  }
 }

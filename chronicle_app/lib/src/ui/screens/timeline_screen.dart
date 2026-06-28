@@ -13,6 +13,7 @@ import 'create_entry_screen.dart';
 import 'edit_entry_screen.dart';
 import 'image_viewer_screen.dart';
 import 'settings_screen.dart';
+import 'vibe_calendar_screen.dart';
 import '../widgets/timeline_item.dart';
 
 class TimelineScreen extends StatefulWidget {
@@ -49,10 +50,75 @@ class _TimelineScreenState extends State<TimelineScreen> {
   Timer? _debounce;
   bool _isFilterPanelExpanded = false;
 
+  DateTime? _selectedCalendarDate;
+  VibeStreakInfo? _streakInfo;
+  bool _showStreaks = true;
+
   @override
   void initState() {
     super.initState();
     _loadTimeline();
+    _loadStreakAndSettings();
+  }
+
+  Future<void> _loadStreakAndSettings() async {
+    final showStreaks = await widget.settingsService.getVibeCalendarShowStreaks();
+    VibeStreakInfo? streakInfo;
+    if (showStreaks) {
+      streakInfo = await widget.timelineService.getVibeStreak();
+    }
+    if (!mounted) return;
+    setState(() {
+      _showStreaks = showStreaks;
+      _streakInfo = streakInfo;
+    });
+  }
+
+  Future<void> _openVibeCalendarScreen() async {
+    final selectedDate = await Navigator.of(context).push<DateTime>(
+      MaterialPageRoute<DateTime>(
+        builder: (context) {
+          return VibeCalendarScreen(
+            timelineService: widget.timelineService,
+            settingsService: widget.settingsService,
+          );
+        },
+      ),
+    );
+
+    // Refresh streak and settings when returning
+    _loadStreakAndSettings();
+
+    if (selectedDate == null || !mounted) {
+      return;
+    }
+
+    // Set date filter for that day
+    setState(() {
+      _selectedCalendarDate = selectedDate;
+      _dateFilter = 'custom';
+      _startDate = DateTime(selectedDate.year, selectedDate.month, selectedDate.day);
+      _endDate = DateTime(selectedDate.year, selectedDate.month, selectedDate.day, 23, 59, 59, 999);
+      _loadTimeline();
+    });
+  }
+
+  void _clearCalendarDateFilter() {
+    setState(() {
+      _selectedCalendarDate = null;
+      _dateFilter = 'all';
+      _startDate = null;
+      _endDate = null;
+      _loadTimeline();
+    });
+  }
+
+  String _formatDateFilterText(DateTime date) {
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
 
   @override
@@ -116,6 +182,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
       _dateFilter = 'all';
       _startDate = null;
       _endDate = null;
+      _selectedCalendarDate = null;
       _loadTimeline();
     });
   }
@@ -135,6 +202,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
 
     setState(() {
       _loadTimeline(tag: _activeTagFilter);
+      _loadStreakAndSettings();
     });
   }
 
@@ -158,6 +226,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
 
     setState(() {
       _loadTimeline(tag: _activeTagFilter);
+      _loadStreakAndSettings();
     });
   }
 
@@ -169,6 +238,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
         },
       ),
     );
+    _loadStreakAndSettings();
   }
 
   Future<void> _hideEntry(TimelineEntry entry) async {
@@ -240,6 +310,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
       setState(() {
         _revealedEntryIds.remove(entry.entryId);
         _loadTimeline(tag: _activeTagFilter);
+        _loadStreakAndSettings();
       });
     } catch (_) {
       if (!mounted) {
@@ -380,6 +451,54 @@ class _TimelineScreenState extends State<TimelineScreen> {
           ),
         ),
         actions: [
+          Stack(
+            alignment: Alignment.center,
+            clipBehavior: Clip.none,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.calendar_month_outlined),
+                tooltip: 'Vibe Calendar',
+                onPressed: _openVibeCalendarScreen,
+              ),
+              if (_showStreaks && _streakInfo != null && _streakInfo!.currentStreak >= 2)
+                Positioned(
+                  right: 2,
+                  top: 2,
+                  child: IgnorePointer(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFF5D35),
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFFF5D35).withOpacity(0.5),
+                            blurRadius: 6,
+                            spreadRadius: 1,
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('🔥', style: TextStyle(fontSize: 10)),
+                          const SizedBox(width: 2),
+                          Text(
+                            '${_streakInfo!.currentStreak}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              height: 1.0,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert_rounded),
             shape: RoundedRectangleBorder(
@@ -460,7 +579,8 @@ class _TimelineScreenState extends State<TimelineScreen> {
                   final hasActiveFilters = _activeTagFilter != null ||
                       _searchQuery.isNotEmpty ||
                       _mediaTypeFilter != 'all' ||
-                      _dateFilter != 'all';
+                      _dateFilter != 'all' ||
+                      _selectedCalendarDate != null;
 
                   if (entries.isEmpty) {
                     return Center(
@@ -473,6 +593,13 @@ class _TimelineScreenState extends State<TimelineScreen> {
                               _ActiveFilterBanner(
                                 tag: _activeTagFilter!,
                                 onClear: _clearFilter,
+                              ),
+                              const SizedBox(height: 16),
+                            ],
+                            if (_selectedCalendarDate != null) ...[
+                              _ActiveDateFilterBanner(
+                                dateText: _formatDateFilterText(_selectedCalendarDate!),
+                                onClear: _clearCalendarDateFilter,
                               ),
                               const SizedBox(height: 16),
                             ],
@@ -507,6 +634,14 @@ class _TimelineScreenState extends State<TimelineScreen> {
                           child: _ActiveFilterBanner(
                             tag: _activeTagFilter!,
                             onClear: _clearFilter,
+                          ),
+                        ),
+                      if (_selectedCalendarDate != null)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                          child: _ActiveDateFilterBanner(
+                            dateText: _formatDateFilterText(_selectedCalendarDate!),
+                            onClear: _clearCalendarDateFilter,
                           ),
                         ),
                       Expanded(
@@ -990,6 +1125,38 @@ class _ActiveFilterBanner extends StatelessWidget {
             Text('Filtering by #$tag'),
             const SizedBox(width: 12),
             TextButton(onPressed: onClear, child: const Text('Clear')),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ActiveDateFilterBanner extends StatelessWidget {
+  const _ActiveDateFilterBanner({required this.dateText, required this.onClear});
+
+  final String dateText;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Theme.of(context).colorScheme.surfaceContainerHigh,
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Text('Filter: $dateText'),
+            const SizedBox(width: 12),
+            IconButton(
+              icon: const Icon(Icons.clear_rounded, size: 16),
+              onPressed: onClear,
+              constraints: const BoxConstraints(),
+              padding: const EdgeInsets.all(4),
+              tooltip: 'Clear filter',
+            ),
           ],
         ),
       ),

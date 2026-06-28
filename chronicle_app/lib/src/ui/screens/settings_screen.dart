@@ -18,6 +18,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _currentTheme = 'sunset_coral';
   bool _isLoading = true;
   bool _isSaving = false;
+  int _startDayOfWeek = 1;
+  bool _showStreaks = true;
 
   @override
   void initState() {
@@ -35,6 +37,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _loadSettings() async {
     final hasPassword = await widget.settingsService.hasHiddenMessagePassword();
     final currentTheme = await widget.settingsService.getSelectedTheme();
+    final startDayOfWeek = await widget.settingsService.getVibeCalendarStartDayOfWeek();
+    final showStreaks = await widget.settingsService.getVibeCalendarShowStreaks();
     if (!mounted) {
       return;
     }
@@ -42,8 +46,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {
       _hasPassword = hasPassword;
       _currentTheme = currentTheme;
+      _startDayOfWeek = startDayOfWeek;
+      _showStreaks = showStreaks;
       _isLoading = false;
     });
+  }
+
+  Future<void> _saveStartDayOfWeek(int day) async {
+    try {
+      await widget.settingsService.setVibeCalendarStartDayOfWeek(day);
+      setState(() {
+        _startDayOfWeek = day;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Start day of week updated.')),
+      );
+    } catch (_) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to update settings.')),
+      );
+    }
+  }
+
+  Future<void> _saveShowStreaks(bool show) async {
+    try {
+      await widget.settingsService.setVibeCalendarShowStreaks(show);
+      setState(() {
+        _showStreaks = show;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Show streaks preference updated.')),
+      );
+    } catch (_) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to update settings.')),
+      );
+    }
   }
 
   Future<void> _saveTheme(String themeName) async {
@@ -276,6 +314,61 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                         ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 28),
+
+                // Vibe Calendar Settings
+                Text(
+                  'Vibe Calendar Settings',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.2,
+                        color: colorScheme.onSurfaceVariant.withOpacity(0.8),
+                      ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1A1715) : colorScheme.surface,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isDark ? const Color(0xFF2C2825) : colorScheme.outlineVariant.withOpacity(0.8),
+                      width: 1.2,
+                    ),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                  child: Column(
+                    children: <Widget>[
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.calendar_view_week_rounded, color: colorScheme.primary),
+                        title: const Text('Start Day of Week', style: TextStyle(fontWeight: FontWeight.w600)),
+                        subtitle: Text(_startDayOfWeek == 1 ? 'Monday' : 'Sunday', style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant.withOpacity(0.7))),
+                        trailing: DropdownButton<int>(
+                          value: _startDayOfWeek,
+                          underline: const SizedBox(),
+                          onChanged: (value) {
+                            if (value != null) {
+                              _saveStartDayOfWeek(value);
+                            }
+                          },
+                          items: const [
+                            DropdownMenuItem(value: 1, child: Text('Monday')),
+                            DropdownMenuItem(value: 7, child: Text('Sunday')),
+                          ],
+                        ),
+                      ),
+                      const Divider(height: 1),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        secondary: Icon(Icons.local_fire_department_rounded, color: colorScheme.primary),
+                        title: const Text('Show Vibe Streaks', style: TextStyle(fontWeight: FontWeight.w600)),
+                        subtitle: Text('Show streak counts on calendar and timeline', style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant.withOpacity(0.7))),
+                        value: _showStreaks,
+                        onChanged: _saveShowStreaks,
                       ),
                     ],
                   ),

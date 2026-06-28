@@ -16,6 +16,9 @@ class SettingsService {
 
   static const String _hiddenMessagePasswordKey = 'hidden_message_password';
   static const String _selectedThemeKey = 'selected_theme';
+  static const String _vibeCalendarStartDayOfWeekKey = 'vibe_calendar_start_day_of_week';
+  static const String _vibeCalendarShowStreaksKey = 'vibe_calendar_show_streaks';
+
 
   final ValueNotifier<String> themeNotifier = ValueNotifier<String>('sunset_coral');
 
@@ -138,5 +141,59 @@ class SettingsService {
     }
 
     return difference == 0;
+  }
+
+  Future<int> getVibeCalendarStartDayOfWeek() async {
+    final rows = await _databaseService.rawQuery(
+      '''
+      SELECT value
+      FROM ${ChronicleSchema.appSettingsTable}
+      WHERE key = ?
+      LIMIT 1
+      ''',
+      <Object?>[_vibeCalendarStartDayOfWeekKey],
+    );
+
+    if (rows.isEmpty) {
+      return 1; // default Monday
+    }
+    return int.tryParse(rows.single['value']! as String) ?? 1;
+  }
+
+  Future<void> setVibeCalendarStartDayOfWeek(int dayOfWeek) async {
+    await _databaseService.transaction((transaction) async {
+      await transaction.insert(
+        ChronicleSchema.appSettingsTable,
+        <String, Object?>{'key': _vibeCalendarStartDayOfWeekKey, 'value': dayOfWeek.toString()},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    });
+  }
+
+  Future<bool> getVibeCalendarShowStreaks() async {
+    final rows = await _databaseService.rawQuery(
+      '''
+      SELECT value
+      FROM ${ChronicleSchema.appSettingsTable}
+      WHERE key = ?
+      LIMIT 1
+      ''',
+      <Object?>[_vibeCalendarShowStreaksKey],
+    );
+
+    if (rows.isEmpty) {
+      return true; // default true
+    }
+    return rows.single['value']! as String == 'true';
+  }
+
+  Future<void> setVibeCalendarShowStreaks(bool show) async {
+    await _databaseService.transaction((transaction) async {
+      await transaction.insert(
+        ChronicleSchema.appSettingsTable,
+        <String, Object?>{'key': _vibeCalendarShowStreaksKey, 'value': show.toString()},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    });
   }
 }

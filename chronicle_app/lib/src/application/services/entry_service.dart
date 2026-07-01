@@ -49,6 +49,8 @@ class EntryService {
   final EventService _eventService;
   final MediaManager _mediaManager;
 
+  MediaManager get mediaManager => _mediaManager;
+
   static final RegExp _hashtagPattern = RegExp(r'(?<!\S)#([A-Za-z0-9_]+)');
 
   Future<EntryRecord> createEntry({
@@ -159,6 +161,68 @@ class EntryService {
       }
       rethrow;
     }
+  }
+
+  Future<EntryRecord> createBotEntry({
+    required String content,
+    required String type, // 'bot_prompt' or 'bot_response'
+    String mood = 'none',
+  }) async {
+    final normalizedContent = content.trim();
+    final createdAt = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+
+    return await _databaseService.transaction((transaction) async {
+      final entryId = await _generateEntryId(transaction);
+
+      await _eventService.writeEvent(
+        ChronicleEventDraft(
+          eventType: 'EntryCreated',
+          entryId: entryId,
+          payload: <String, Object?>{
+            'type': type,
+            'content': normalizedContent,
+            'media_path': null,
+            'location_name': null,
+            'latitude': null,
+            'longitude': null,
+            'mood': mood,
+            'unlock_at': null,
+          },
+          createdAt: createdAt,
+        ),
+        executor: transaction,
+      );
+
+      await transaction
+          .insert(ChronicleSchema.entryIndexTable, <String, Object?>{
+            'entry_id': entryId,
+            'type': type,
+            'content': normalizedContent,
+            'media_path': null,
+            'created_at': createdAt,
+            'archived': 0,
+            'hidden': 0,
+            'location_name': null,
+            'latitude': null,
+            'longitude': null,
+            'mood': mood,
+            'unlock_at': null,
+          });
+
+      return EntryRecord(
+        entryId: entryId,
+        type: type,
+        content: normalizedContent,
+        mediaPath: null,
+        tags: const [],
+        createdAt: createdAt,
+        locationName: null,
+        latitude: null,
+        longitude: null,
+        mood: mood,
+        unlockAt: null,
+      );
+    });
   }
 
   Future<EntryRecord> editEntry({

@@ -20,6 +20,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _isSaving = false;
   int _startDayOfWeek = 1;
   bool _showStreaks = true;
+  bool _botEnabled = true;
+  String _botTime = '20:00';
 
   @override
   void initState() {
@@ -39,6 +41,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final currentTheme = await widget.settingsService.getSelectedTheme();
     final startDayOfWeek = await widget.settingsService.getVibeCalendarStartDayOfWeek();
     final showStreaks = await widget.settingsService.getVibeCalendarShowStreaks();
+    final botEnabled = await widget.settingsService.getVibeCheckBotEnabled();
+    final botTime = await widget.settingsService.getVibeCheckBotTime();
     if (!mounted) {
       return;
     }
@@ -48,6 +52,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _currentTheme = currentTheme;
       _startDayOfWeek = startDayOfWeek;
       _showStreaks = showStreaks;
+      _botEnabled = botEnabled;
+      _botTime = botTime;
       _isLoading = false;
     });
   }
@@ -81,6 +87,103 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Unable to update settings.')),
       );
+    }
+  }
+
+  Future<void> _saveBotEnabled(bool enabled) async {
+    try {
+      await widget.settingsService.setVibeCheckBotEnabled(enabled);
+      setState(() {
+        _botEnabled = enabled;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vibe check bot status updated.')),
+      );
+    } catch (_) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to update settings.')),
+      );
+    }
+  }
+
+  Future<void> _selectBotTime() async {
+    final parts = _botTime.split(':');
+    final initialHour = int.tryParse(parts[0]) ?? 20;
+    final initialMinute = int.tryParse(parts[1]) ?? 0;
+
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: initialHour, minute: initialMinute),
+    );
+
+    if (picked != null) {
+      final hourStr = picked.hour.toString().padLeft(2, '0');
+      final minuteStr = picked.minute.toString().padLeft(2, '0');
+      final timeStr = '$hourStr:$minuteStr';
+
+      try {
+        await widget.settingsService.setVibeCheckBotTime(timeStr);
+        setState(() {
+          _botTime = timeStr;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Vibe check bot time set to ${_formatTimeOfDay(picked)}.')),
+        );
+      } catch (_) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to update settings.')),
+        );
+      }
+    }
+  }
+
+  String _formatTimeOfDay(TimeOfDay time) {
+    final hour = time.hourOfPeriod == 0 ? 12 : time.hourOfPeriod;
+    final period = time.period == DayPeriod.am ? 'AM' : 'PM';
+    final minuteStr = time.minute.toString().padLeft(2, '0');
+    return '$hour:$minuteStr $period';
+  }
+
+  String _formatTimeStr(String timeStr) {
+    final parts = timeStr.split(':');
+    final hour = int.tryParse(parts[0]) ?? 20;
+    final minute = int.tryParse(parts[1]) ?? 0;
+    return _formatTimeOfDay(TimeOfDay(hour: hour, minute: minute));
+  }
+
+  Future<void> _clearBotHistory() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Clear Bot History'),
+          content: const Text('Are you sure you want to delete all Vibe Check Bot messages from your timeline? This action cannot be undone.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Clear'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed == true) {
+      try {
+        await widget.settingsService.clearBotMessages();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Bot history cleared successfully.')),
+        );
+      } catch (_) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to clear bot history.')),
+        );
+      }
     }
   }
 
@@ -369,6 +472,60 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         subtitle: Text('Show streak counts on calendar and timeline', style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant.withOpacity(0.7))),
                         value: _showStreaks,
                         onChanged: _saveShowStreaks,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 28),
+
+                // Vibe Check-In Bot Settings
+                Text(
+                  'Vibe Check-In Bot Settings',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.2,
+                        color: colorScheme.onSurfaceVariant.withOpacity(0.8),
+                      ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1A1715) : colorScheme.surface,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isDark ? const Color(0xFF2C2825) : colorScheme.outlineVariant.withOpacity(0.8),
+                      width: 1.2,
+                    ),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                  child: Column(
+                    children: <Widget>[
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        secondary: Icon(Icons.smart_toy_outlined, color: colorScheme.primary),
+                        title: const Text('Enable Daily Vibe Check Bot', style: TextStyle(fontWeight: FontWeight.w600)),
+                        subtitle: Text('Bot will check in automatically once a day', style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant.withOpacity(0.7))),
+                        value: _botEnabled,
+                        onChanged: _saveBotEnabled,
+                      ),
+                      const Divider(height: 1),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.schedule_rounded, color: colorScheme.primary),
+                        title: const Text('Scheduled Check-In Time', style: TextStyle(fontWeight: FontWeight.w600)),
+                        subtitle: Text(_formatTimeStr(_botTime), style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant.withOpacity(0.7))),
+                        trailing: Icon(Icons.arrow_forward_ios_rounded, size: 16, color: colorScheme.onSurfaceVariant),
+                        onTap: _botEnabled ? _selectBotTime : null,
+                        enabled: _botEnabled,
+                      ),
+                      const Divider(height: 1),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.delete_sweep_outlined, color: Colors.red),
+                        title: const Text('Clear Vibe Check History', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.red)),
+                        subtitle: const Text('Delete all bot conversation messages', style: TextStyle(fontSize: 12, color: Colors.redAccent)),
+                        trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Colors.redAccent),
+                        onTap: _clearBotHistory,
                       ),
                     ],
                   ),

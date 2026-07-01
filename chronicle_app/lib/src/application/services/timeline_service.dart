@@ -39,6 +39,7 @@ class TimelineEntry {
   final int? unlockAt;
 
   bool get isLocked => unlockAt != null && unlockAt! > DateTime.now().millisecondsSinceEpoch;
+  bool get isBot => type == 'bot_prompt' || type == 'bot_response';
 }
 
 class VibeStreakInfo {

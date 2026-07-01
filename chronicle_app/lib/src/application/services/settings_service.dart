@@ -18,6 +18,13 @@ class SettingsService {
   static const String _selectedThemeKey = 'selected_theme';
   static const String _vibeCalendarStartDayOfWeekKey = 'vibe_calendar_start_day_of_week';
   static const String _vibeCalendarShowStreaksKey = 'vibe_calendar_show_streaks';
+  static const String _vibeCheckBotEnabledKey = 'vibe_check_bot_enabled';
+  static const String _vibeCheckBotTimeKey = 'vibe_check_bot_time';
+  static const String _vibeCheckLastTriggerDateKey = 'vibe_check_last_trigger_date';
+  static const String _lastWeeklyWrappedDateKey = 'last_weekly_wrapped_date';
+  static const String _scrapbookBoardThemeKey = 'scrapbook_board_theme';
+  static const String _scrapbookWashiStyleKey = 'scrapbook_washi_style';
+  static const String _scrapbookLayoutPositionsKey = 'scrapbook_layout_positions';
 
 
   final ValueNotifier<String> themeNotifier = ValueNotifier<String>('sunset_coral');
@@ -192,6 +199,220 @@ class SettingsService {
       await transaction.insert(
         ChronicleSchema.appSettingsTable,
         <String, Object?>{'key': _vibeCalendarShowStreaksKey, 'value': show.toString()},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    });
+  }
+
+  Future<bool> getVibeCheckBotEnabled() async {
+    final rows = await _databaseService.rawQuery(
+      '''
+      SELECT value
+      FROM ${ChronicleSchema.appSettingsTable}
+      WHERE key = ?
+      LIMIT 1
+      ''',
+      <Object?>[_vibeCheckBotEnabledKey],
+    );
+
+    if (rows.isEmpty) {
+      return true; // default true
+    }
+    return rows.single['value']! as String == 'true';
+  }
+
+  Future<void> setVibeCheckBotEnabled(bool enabled) async {
+    await _databaseService.transaction((transaction) async {
+      await transaction.insert(
+        ChronicleSchema.appSettingsTable,
+        <String, Object?>{'key': _vibeCheckBotEnabledKey, 'value': enabled.toString()},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    });
+  }
+
+  Future<String> getVibeCheckBotTime() async {
+    final rows = await _databaseService.rawQuery(
+      '''
+      SELECT value
+      FROM ${ChronicleSchema.appSettingsTable}
+      WHERE key = ?
+      LIMIT 1
+      ''',
+      <Object?>[_vibeCheckBotTimeKey],
+    );
+
+    if (rows.isEmpty) {
+      return '20:00'; // default 8 PM
+    }
+    return rows.single['value']! as String;
+  }
+
+  Future<void> setVibeCheckBotTime(String time) async {
+    await _databaseService.transaction((transaction) async {
+      await transaction.insert(
+        ChronicleSchema.appSettingsTable,
+        <String, Object?>{'key': _vibeCheckBotTimeKey, 'value': time},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    });
+  }
+
+  Future<String?> getVibeCheckLastTriggerDate() async {
+    final rows = await _databaseService.rawQuery(
+      '''
+      SELECT value
+      FROM ${ChronicleSchema.appSettingsTable}
+      WHERE key = ?
+      LIMIT 1
+      ''',
+      <Object?>[_vibeCheckLastTriggerDateKey],
+    );
+
+    if (rows.isEmpty) {
+      return null;
+    }
+    return rows.single['value']! as String;
+  }
+
+  Future<void> setVibeCheckLastTriggerDate(String date) async {
+    await _databaseService.transaction((transaction) async {
+      await transaction.insert(
+        ChronicleSchema.appSettingsTable,
+        <String, Object?>{'key': _vibeCheckLastTriggerDateKey, 'value': date},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    });
+  }
+
+  Future<void> clearBotMessages() async {
+    await _databaseService.transaction((transaction) async {
+      await transaction.delete(
+        ChronicleSchema.entryIndexTable,
+        where: "type IN ('bot_prompt', 'bot_response')",
+      );
+    });
+  }
+
+  Future<String?> getLastWeeklyWrappedDate() async {
+    final rows = await _databaseService.rawQuery(
+      '''
+      SELECT value
+      FROM ${ChronicleSchema.appSettingsTable}
+      WHERE key = ?
+      LIMIT 1
+      ''',
+      <Object?>[_lastWeeklyWrappedDateKey],
+    );
+
+    if (rows.isEmpty) {
+      return null;
+    }
+    return rows.single['value']! as String;
+  }
+
+  Future<void> setLastWeeklyWrappedDate(String dateCode) async {
+    await _databaseService.transaction((transaction) async {
+      await transaction.insert(
+        ChronicleSchema.appSettingsTable,
+        <String, Object?>{'key': _lastWeeklyWrappedDateKey, 'value': dateCode},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    });
+  }
+
+  Future<String> getScrapbookBoardTheme() async {
+    final rows = await _databaseService.rawQuery(
+      '''
+      SELECT value
+      FROM ${ChronicleSchema.appSettingsTable}
+      WHERE key = ?
+      LIMIT 1
+      ''',
+      <Object?>[_scrapbookBoardThemeKey],
+    );
+    if (rows.isEmpty) {
+      return 'corkboard';
+    }
+    return rows.single['value']! as String;
+  }
+
+  Future<void> setScrapbookBoardTheme(String theme) async {
+    await _databaseService.transaction((transaction) async {
+      await transaction.insert(
+        ChronicleSchema.appSettingsTable,
+        <String, Object?>{'key': _scrapbookBoardThemeKey, 'value': theme},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    });
+  }
+
+  Future<String> getScrapbookWashiStyle() async {
+    final rows = await _databaseService.rawQuery(
+      '''
+      SELECT value
+      FROM ${ChronicleSchema.appSettingsTable}
+      WHERE key = ?
+      LIMIT 1
+      ''',
+      <Object?>[_scrapbookWashiStyleKey],
+    );
+    if (rows.isEmpty) {
+      return 'grid';
+    }
+    return rows.single['value']! as String;
+  }
+
+  Future<void> setScrapbookWashiStyle(String style) async {
+    await _databaseService.transaction((transaction) async {
+      await transaction.insert(
+        ChronicleSchema.appSettingsTable,
+        <String, Object?>{'key': _scrapbookWashiStyleKey, 'value': style},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    });
+  }
+
+  Future<Map<int, Map<String, double>>> getScrapbookLayoutPositions() async {
+    final rows = await _databaseService.rawQuery(
+      '''
+      SELECT value
+      FROM ${ChronicleSchema.appSettingsTable}
+      WHERE key = ?
+      LIMIT 1
+      ''',
+      <Object?>[_scrapbookLayoutPositionsKey],
+    );
+    if (rows.isEmpty) {
+      return <int, Map<String, double>>{};
+    }
+    try {
+      final decoded = json.decode(rows.single['value']! as String) as Map<String, dynamic>;
+      final result = <int, Map<String, double>>{};
+      decoded.forEach((key, val) {
+        final id = int.tryParse(key);
+        if (id != null && val is Map) {
+          result[id] = {
+            'x': (val['x'] as num).toDouble(),
+            'y': (val['y'] as num).toDouble(),
+            'rotation': (val['rotation'] as num).toDouble(),
+          };
+        }
+      });
+      return result;
+    } catch (_) {
+      return <int, Map<String, double>>{};
+    }
+  }
+
+  Future<void> setScrapbookLayoutPositions(Map<int, Map<String, double>> positions) async {
+    final encoded = json.encode(
+      positions.map((key, val) => MapEntry(key.toString(), val)),
+    );
+    await _databaseService.transaction((transaction) async {
+      await transaction.insert(
+        ChronicleSchema.appSettingsTable,
+        <String, Object?>{'key': _scrapbookLayoutPositionsKey, 'value': encoded},
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
     });

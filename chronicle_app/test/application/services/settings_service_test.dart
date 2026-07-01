@@ -58,5 +58,33 @@ void main() {
       );
       expect(rows.single['value'], isNot(contains('secret')));
     });
+
+    test('saves and retrieves scrapbook configurations and layout positions', () async {
+      // Test defaults
+      expect(await settingsService.getScrapbookBoardTheme(), 'corkboard');
+      expect(await settingsService.getScrapbookWashiStyle(), 'grid');
+      expect(await settingsService.getScrapbookLayoutPositions(), isEmpty);
+
+      // Test theme saving
+      await settingsService.setScrapbookBoardTheme('pastel_aura');
+      expect(await settingsService.getScrapbookBoardTheme(), 'pastel_aura');
+
+      // Test washi style saving
+      await settingsService.setScrapbookWashiStyle('glitter');
+      expect(await settingsService.getScrapbookWashiStyle(), 'glitter');
+
+      // Test layout coordinates saving
+      final positions = {
+        101: {'x': 100.5, 'y': 200.0, 'rotation': -2.5},
+        102: {'x': 150.0, 'y': 350.5, 'rotation': 4.2},
+      };
+      await settingsService.setScrapbookLayoutPositions(positions);
+
+      final loadedPositions = await settingsService.getScrapbookLayoutPositions();
+      expect(loadedPositions.length, 2);
+      expect(loadedPositions[101]!['x'], 100.5);
+      expect(loadedPositions[101]!['rotation'], -2.5);
+      expect(loadedPositions[102]!['y'], 350.5);
+    });
   });
 }

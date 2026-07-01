@@ -16,10 +16,12 @@ class CreateEntryScreen extends StatefulWidget {
     super.key,
     required this.entryService,
     this.pickImage,
+    this.initialMood,
   });
 
   final EntryService entryService;
   final ImageFilePicker? pickImage;
+  final String? initialMood;
 
   @override
   State<CreateEntryScreen> createState() => _CreateEntryScreenState();
@@ -35,6 +37,14 @@ class _CreateEntryScreenState extends State<CreateEntryScreen> {
   double? _longitude;
   String _selectedMood = 'none';
   DateTime? _timeCapsuleUnlockDate;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialMood != null) {
+      _selectedMood = widget.initialMood!;
+    }
+  }
 
   @override
   void dispose() {
@@ -300,15 +310,17 @@ class _CreateEntryScreenState extends State<CreateEntryScreen> {
                     ],
 
                     // Vibe Selector Strip
-                    VibeSelectorStrip(
-                      selectedMood: _selectedMood,
-                      onMoodSelected: (mood) {
-                        setState(() {
-                          _selectedMood = mood;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 16),
+                    if (widget.initialMood == null) ...[
+                      VibeSelectorStrip(
+                        selectedMood: _selectedMood,
+                        onMoodSelected: (mood) {
+                          setState(() {
+                            _selectedMood = mood;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                    ],
                   ],
                 ),
               ),
@@ -341,6 +353,18 @@ class _CreateEntryScreenState extends State<CreateEntryScreen> {
       ),
       child: Row(
         children: [
+          IconButton(
+            onPressed: () {
+              Navigator.of(context).pop('vibe_check');
+            },
+            icon: const Icon(
+              Icons.smart_toy_outlined,
+              color: Color(0xFF06B6D4), // Bot Cyan
+              size: 24,
+            ),
+            tooltip: 'Start Vibe Check-In',
+          ),
+          const SizedBox(width: 8),
           IconButton(
             onPressed: _isSaving || _recordedVoiceFile != null ? null : _attachImage,
             icon: Icon(

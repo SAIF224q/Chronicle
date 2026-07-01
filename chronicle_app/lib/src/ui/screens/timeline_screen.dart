@@ -15,6 +15,11 @@ import 'image_viewer_screen.dart';
 import 'settings_screen.dart';
 import 'vibe_calendar_screen.dart';
 import '../widgets/timeline_item.dart';
+import '../widgets/bot_typing_indicator.dart';
+import '../../application/services/vibe_check_service.dart';
+import '../../application/services/weekly_wrapped_service.dart';
+import 'weekly_wrapped_screen.dart';
+import 'scrapbook_board_screen.dart';
 
 class TimelineScreen extends StatefulWidget {
   const TimelineScreen({
@@ -53,10 +58,20 @@ class _TimelineScreenState extends State<TimelineScreen> {
   DateTime? _selectedCalendarDate;
   VibeStreakInfo? _streakInfo;
   bool _showStreaks = true;
+  bool _isBotTyping = false;
+  final VibeCheckService _vibeCheckService = VibeCheckService();
+  late final WeeklyWrappedService _weeklyWrappedService;
 
   @override
   void initState() {
     super.initState();
+    _weeklyWrappedService = WeeklyWrappedService(
+      databaseService: widget.databaseService,
+      timelineService: widget.timelineService,
+      entryService: widget.entryService,
+      settingsService: widget.settingsService,
+      mediaManager: widget.entryService.mediaManager,
+    );
     _loadTimeline();
     _loadStreakAndSettings();
   }
@@ -103,6 +118,20 @@ class _TimelineScreenState extends State<TimelineScreen> {
     });
   }
 
+  Future<void> _openScrapbookScreen() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) {
+          return ScrapbookBoardScreen(
+            timelineService: widget.timelineService,
+            settingsService: widget.settingsService,
+          );
+        },
+      ),
+    );
+    _loadTimeline();
+  }
+
   void _clearCalendarDateFilter() {
     setState(() {
       _selectedCalendarDate = null;
@@ -132,7 +161,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
     if (tag != null) {
       _activeTagFilter = tag;
     }
-    _timelineFuture = widget.timelineService.loadTimelineEntries(
+    final future = widget.timelineService.loadTimelineEntries(
       tag: _activeTagFilter,
       searchQuery: _searchQuery,
       mediaTypeFilter: _mediaTypeFilter,
@@ -140,6 +169,191 @@ class _TimelineScreenState extends State<TimelineScreen> {
       startDate: _startDate,
       endDate: _endDate,
     );
+    _timelineFuture = future;
+
+    future.then((entries) {
+      if (mounted) {
+        _checkAndTriggerBotConversations(entries);
+        _checkAndTriggerDailyVibeCheck(entries);
+        _checkAndTriggerWeeklyWrapped();
+      }
+    });
+  }
+
+  Future<void> _checkAndTriggerWeeklyWrapped() async {
+    try {
+      final generatedEntry = await _weeklyWrappedService.checkAndGenerateWeeklyWrapped(DateTime.now());
+      if (generatedEntry != null && mounted) {
+        setState(() {
+          _loadTimeline(tag: _activeTagFilter);
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _openWeeklyWrappedScreen(TimelineEntry entry) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (context) {
+          return WeeklyWrappedScreen(
+            entry: entry,
+            onViewCompleted: () async {
+              await _weeklyWrappedService.markWeeklyWrappedAsViewed(entry.entryId);
+              if (mounted) {
+                setState(() {
+                  _loadTimeline(tag: _activeTagFilter);
+                });
+              }
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _startVibeCheckSession() async {
+    try {
+      await widget.entryService.createBotEntry(
+        content: "Hey! Let's do a quick vibe check-in. How are you feeling right now? 🤖",
+        type: 'bot_prompt',
+        mood: 'none',
+      );
+      setState(() {
+        _loadTimeline(tag: _activeTagFilter);
+        _loadStreakAndSettings();
+      });
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to start vibe check.')),
+      );
+    }
+  }
+
+  Future<void> _handleBotChoiceSelected(String mood) async {
+    final moodName = mood[0].toUpperCase() + mood.substring(1);
+    final moodEmojis = {
+      'hype': '🌟',
+      'chill': '☁️',
+      'chaotic': '⚡',
+      'blue': '🌧️',
+      'stressed': '🌪️',
+      'grateful': '🌸',
+    };
+    final emoji = moodEmojis[mood] ?? '💬';
+
+    try {
+      await widget.entryService.createEntry(
+        content: "I'm feeling $moodName $emoji",
+        mood: mood,
+      );
+
+      setState(() {
+        _isBotTyping = true;
+        _loadTimeline(tag: _activeTagFilter);
+      });
+
+      await Future<void>.delayed(const Duration(milliseconds: 1200));
+
+      final followUp = _vibeCheckService.getFollowUpPrompt(mood);
+      await widget.entryService.createBotEntry(
+        content: followUp,
+        type: 'bot_response',
+        mood: mood,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _isBotTyping = false;
+        _loadTimeline(tag: _activeTagFilter);
+        _loadStreakAndSettings();
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isBotTyping = false;
+        _loadTimeline(tag: _activeTagFilter);
+      });
+    }
+  }
+
+  Future<void> _checkAndTriggerBotConversations(List<TimelineEntry> entries) async {
+    if (entries.isEmpty || _isBotTyping) return;
+
+    final latestEntry = _sortByOldest ? entries.last : entries.first;
+    if (latestEntry.isBot) return;
+
+    if (entries.length < 2) return;
+    final prevEntry = _sortByOldest ? entries[entries.length - 2] : entries[1];
+
+    if (prevEntry.type == 'bot_response' && prevEntry.mood != 'none') {
+      final mood = prevEntry.mood;
+
+      if (latestEntry.mood == 'none') {
+        try {
+          await widget.entryService.editEntry(
+            entryId: latestEntry.entryId,
+            content: latestEntry.content,
+            mood: mood,
+          );
+        } catch (_) {}
+      }
+
+      setState(() {
+        _isBotTyping = true;
+      });
+
+      await Future<void>.delayed(const Duration(milliseconds: 1200));
+
+      final finalResponse = _vibeCheckService.getFinalSupportResponse(mood);
+      try {
+        await widget.entryService.createBotEntry(
+          content: finalResponse,
+          type: 'bot_response',
+          mood: 'none',
+        );
+      } catch (_) {}
+
+      if (!mounted) return;
+      setState(() {
+        _isBotTyping = false;
+        _loadTimeline(tag: _activeTagFilter);
+        _loadStreakAndSettings();
+      });
+    }
+  }
+
+  Future<void> _checkAndTriggerDailyVibeCheck(List<TimelineEntry> entries) async {
+    final enabled = await widget.settingsService.getVibeCheckBotEnabled();
+    if (!enabled) return;
+
+    final scheduledTimeStr = await widget.settingsService.getVibeCheckBotTime();
+    final parts = scheduledTimeStr.split(':');
+    final scheduledHour = int.tryParse(parts[0]) ?? 20;
+    final scheduledMinute = int.tryParse(parts[1]) ?? 0;
+
+    final now = DateTime.now();
+    final scheduledToday = DateTime(now.year, now.month, now.day, scheduledHour, scheduledMinute);
+    if (now.isBefore(scheduledToday)) return;
+
+    final todayStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    final lastTriggerDate = await widget.settingsService.getVibeCheckLastTriggerDate();
+    if (lastTriggerDate == todayStr) return;
+
+    await widget.settingsService.setVibeCheckLastTriggerDate(todayStr);
+
+    try {
+      await widget.entryService.createBotEntry(
+        content: "Hey! It's time for your daily vibe check-in. How are you feeling right now? 🤖",
+        type: 'bot_prompt',
+        mood: 'none',
+      );
+      if (!mounted) return;
+      setState(() {
+        _loadTimeline(tag: _activeTagFilter);
+        _loadStreakAndSettings();
+      });
+    } catch (_) {}
   }
 
   void _onSearchChanged(String query) {
@@ -188,15 +402,38 @@ class _TimelineScreenState extends State<TimelineScreen> {
   }
 
   Future<void> _openCreateEntryScreen() async {
-    final saved = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
+    String? activeBotMood;
+    try {
+      final entries = await _timelineFuture;
+      if (entries.isNotEmpty) {
+        final lastEntry = entries.first;
+        if (lastEntry.type == 'bot_response' && lastEntry.mood != 'none') {
+          activeBotMood = lastEntry.mood;
+        }
+      }
+    } catch (_) {}
+
+    final result = await Navigator.of(context).push<dynamic>(
+      MaterialPageRoute<dynamic>(
         builder: (context) {
-          return CreateEntryScreen(entryService: widget.entryService);
+          return CreateEntryScreen(
+            entryService: widget.entryService,
+            initialMood: activeBotMood,
+          );
         },
       ),
     );
 
-    if (!mounted || saved != true) {
+    if (!mounted) {
+      return;
+    }
+
+    if (result == 'vibe_check') {
+      _startVibeCheckSession();
+      return;
+    }
+
+    if (result != true) {
       return;
     }
 
@@ -451,6 +688,11 @@ class _TimelineScreenState extends State<TimelineScreen> {
           ),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.auto_awesome_motion),
+            tooltip: 'Memory Scrapbook',
+            onPressed: _openScrapbookScreen,
+          ),
           Stack(
             alignment: Alignment.center,
             clipBehavior: Clip.none,
@@ -582,7 +824,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
                       _dateFilter != 'all' ||
                       _selectedCalendarDate != null;
 
-                  if (entries.isEmpty) {
+                  if (entries.isEmpty && !_isBotTyping) {
                     return Center(
                       child: Padding(
                         padding: const EdgeInsets.all(24),
@@ -647,19 +889,39 @@ class _TimelineScreenState extends State<TimelineScreen> {
                       Expanded(
                         child: ListView.builder(
                           padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
-                          itemCount: entries.length,
+                          itemCount: entries.length + (_isBotTyping ? 1 : 0),
                           itemBuilder: (context, index) {
+                            final showIndicatorAtStart = !_sortByOldest;
+                            if (_isBotTyping) {
+                              if (showIndicatorAtStart && index == 0) {
+                                return const BotTypingIndicator();
+                              }
+                              if (!showIndicatorAtStart && index == entries.length) {
+                                return const BotTypingIndicator();
+                              }
+                            }
+
+                            final entryIndex = _isBotTyping
+                                ? (showIndicatorAtStart ? index - 1 : index)
+                                : index;
+                            final isNewestEntry = _sortByOldest
+                                ? entryIndex == entries.length - 1
+                                : entryIndex == 0;
+
                             final item = TimelineItem(
-                              entry: entries[index],
+                              entry: entries[entryIndex],
                               isRevealed: _revealedEntryIds.contains(
-                                entries[index].entryId,
+                                entries[entryIndex].entryId,
                               ),
                               onTagTap: _handleTagTap,
-                              onEditTap: () => _openEditEntryScreen(entries[index]),
-                              onDeleteTap: () => _hideEntry(entries[index]),
+                              onEditTap: () => _openEditEntryScreen(entries[entryIndex]),
+                              onDeleteTap: () => _hideEntry(entries[entryIndex]),
                               onHiddenPlaceholderTap: () =>
-                                  _revealEntry(entries[index]),
+                                  _revealEntry(entries[entryIndex]),
                               onImageTap: _openImageViewer,
+                              isLastBotPrompt: isNewestEntry && entries[entryIndex].type == 'bot_prompt',
+                              onChoiceSelected: _handleBotChoiceSelected,
+                              onWeeklyWrappedTap: _openWeeklyWrappedScreen,
                             );
 
                             return TweenAnimationBuilder<double>(

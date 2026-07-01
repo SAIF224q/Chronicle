@@ -1,8 +1,10 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../application/services/timeline_service.dart';
@@ -21,6 +23,9 @@ class TimelineItem extends StatelessWidget {
     required this.onDeleteTap,
     required this.onHiddenPlaceholderTap,
     required this.onImageTap,
+    this.isLastBotPrompt = false,
+    this.onChoiceSelected,
+    this.onWeeklyWrappedTap,
   });
 
   final TimelineEntry entry;
@@ -30,15 +35,21 @@ class TimelineItem extends StatelessWidget {
   final VoidCallback onDeleteTap;
   final VoidCallback onHiddenPlaceholderTap;
   final ValueChanged<File> onImageTap;
+  final bool isLastBotPrompt;
+  final ValueChanged<String>? onChoiceSelected;
+  final ValueChanged<TimelineEntry>? onWeeklyWrappedTap;
 
   @override
   Widget build(BuildContext context) {
+    if (entry.type == 'weekly_wrapped') {
+      return _buildWeeklyWrappedCard(context);
+    }
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final isUnlockedTimeCapsule = entry.unlockAt != null && !entry.isLocked;
     final textColor = isUnlockedTimeCapsule ? Colors.white : _getTextColor(context, entry.mood);
     final secondaryTextColor = isUnlockedTimeCapsule ? Colors.white70 : _getSecondaryTextColor(context, entry.mood);
-    final showBadge = entry.mood != 'none' && !entry.isLocked;
+    final showBadge = entry.mood != 'none' && !entry.isLocked && !entry.isBot;
 
     Widget bubbleContent = Container(
       constraints: const BoxConstraints(maxWidth: 500),
@@ -59,6 +70,24 @@ class TimelineItem extends StatelessWidget {
                 secondaryTextColor: secondaryTextColor,
               ),
             ] else ...<Widget>[
+              if (entry.isBot) ...<Widget>[
+                Row(
+                  children: [
+                    const Text('🤖', style: TextStyle(fontSize: 16)),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Vibe Check-In',
+                      style: GoogleFonts.outfit(
+                        fontWeight: FontWeight.bold,
+                        color: const Color(0xFF06B6D4), // Cyan neon color
+                        fontSize: 13,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+              ],
               if (isUnlockedTimeCapsule) ...<Widget>[
                 Row(
                   children: [
@@ -92,7 +121,9 @@ class TimelineItem extends StatelessWidget {
                     color: textColor,
                     fontSize: 16,
                     height: 1.45,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: entry.isBot ? FontWeight.w600 : FontWeight.w500,
+                    fontStyle: entry.isBot ? FontStyle.italic : FontStyle.normal,
+                    fontFamily: entry.isBot ? GoogleFonts.outfit().fontFamily : null,
                   ),
                 ),
               ],
@@ -117,6 +148,27 @@ class TimelineItem extends StatelessWidget {
                 ),
               ],
             ],
+            if (isLastBotPrompt && onChoiceSelected != null) ...<Widget>[
+              const SizedBox(height: 14),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _buildChoiceChip(context, 'hype', '🌟 Hype', const Color(0xFFFFB000)),
+                    const SizedBox(width: 8),
+                    _buildChoiceChip(context, 'chill', '☁️ Chill', const Color(0xFF8B5CF6)),
+                    const SizedBox(width: 8),
+                    _buildChoiceChip(context, 'chaotic', '⚡ Chaotic', const Color(0xFF84CC16)),
+                    const SizedBox(width: 8),
+                    _buildChoiceChip(context, 'blue', '🌧️ Blue', const Color(0xFF3B82F6)),
+                    const SizedBox(width: 8),
+                    _buildChoiceChip(context, 'stressed', '🌪️ Stressed', const Color(0xFFEF4444)),
+                    const SizedBox(width: 8),
+                    _buildChoiceChip(context, 'grateful', '🌸 Grateful', const Color(0xFFEC4899)),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
             // Bottom metadata & action row
             Row(
@@ -131,32 +183,33 @@ class TimelineItem extends StatelessWidget {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      onPressed: (entry.isHidden && !isRevealed) || entry.isLocked ? null : onEditTap,
-                      visualDensity: VisualDensity.compact,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      iconSize: 16,
-                      tooltip: 'Edit entry',
-                      icon: const Icon(Icons.edit_outlined),
-                      color: secondaryTextColor.withOpacity(0.8),
-                    ),
-                    const SizedBox(width: 12),
-                    IconButton(
-                      onPressed: (entry.isHidden && !isRevealed) || entry.isLocked ? null : onDeleteTap,
-                      visualDensity: VisualDensity.compact,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      iconSize: 16,
-                      tooltip: 'Delete message',
-                      icon: const Icon(Icons.delete_outline),
-                      color: secondaryTextColor.withOpacity(0.8),
-                    ),
-                  ],
-                ),
+                if (!entry.isBot)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        onPressed: (entry.isHidden && !isRevealed) || entry.isLocked ? null : onEditTap,
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        iconSize: 16,
+                        tooltip: 'Edit entry',
+                        icon: const Icon(Icons.edit_outlined),
+                        color: secondaryTextColor.withOpacity(0.8),
+                      ),
+                      const SizedBox(width: 12),
+                      IconButton(
+                        onPressed: (entry.isHidden && !isRevealed) || entry.isLocked ? null : onDeleteTap,
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        iconSize: 16,
+                        tooltip: 'Delete message',
+                        icon: const Icon(Icons.delete_outline),
+                        color: secondaryTextColor.withOpacity(0.8),
+                      ),
+                    ],
+                  ),
               ],
             ),
           ],
@@ -166,6 +219,33 @@ class TimelineItem extends StatelessWidget {
 
     if (isUnlockedTimeCapsule) {
       bubbleContent = ConfettiWrapper(child: bubbleContent);
+    }
+
+    if (entry.isBot) {
+      final bubbleRadius = BorderRadius.only(
+        topLeft: const Radius.circular(24),
+        topRight: const Radius.circular(24),
+        bottomRight: const Radius.circular(24),
+        bottomLeft: Radius.circular(entry.mood == 'none' ? 24 : 6),
+      );
+      bubbleContent = ClipRRect(
+        borderRadius: bubbleRadius,
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: CustomPaint(
+            painter: _GradientBorderPainter(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF06B6D4), Color(0xFF8B5CF6)], // Cyan to Purple
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              strokeWidth: 1.5,
+              radius: bubbleRadius,
+            ),
+            child: bubbleContent,
+          ),
+        ),
+      );
     }
 
     return Align(
@@ -182,6 +262,9 @@ class TimelineItem extends StatelessWidget {
 
   Color _getTextColor(BuildContext context, String mood) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    if (entry.isBot) {
+      return isDark ? Colors.white : Colors.black87;
+    }
     if (isDark) {
       return Colors.white;
     }
@@ -204,6 +287,9 @@ class TimelineItem extends StatelessWidget {
 
   Color _getSecondaryTextColor(BuildContext context, String mood) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    if (entry.isBot) {
+      return isDark ? Colors.white60 : Colors.black54;
+    }
     if (isDark) {
       return Colors.white70;
     }
@@ -348,6 +434,13 @@ class TimelineItem extends StatelessWidget {
     if (entry.isLocked) {
       return BoxDecoration(
         color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.03),
+        borderRadius: bubbleRadius,
+      );
+    }
+
+    if (entry.isBot) {
+      return BoxDecoration(
+        color: isDark ? Colors.white.withOpacity(0.04) : Colors.black.withOpacity(0.02),
         borderRadius: bubbleRadius,
       );
     }
@@ -555,6 +648,189 @@ class TimelineItem extends StatelessWidget {
     } else {
       return 'just now';
     }
+  }
+
+  static final Map<String, Color> _lightModeTextColors = {
+    'hype': Colors.orange.shade900,
+    'chill': Colors.purple.shade900,
+    'chaotic': Colors.green.shade900,
+    'blue': Colors.blue.shade900,
+    'stressed': Colors.red.shade900,
+    'grateful': Colors.pink.shade900,
+  };
+
+  Widget _buildChoiceChip(BuildContext context, String mood, String label, Color accentColor) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textCol = isDark ? accentColor : (_lightModeTextColors[mood] ?? Colors.black87);
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        onChoiceSelected!(mood);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: isDark ? accentColor.withOpacity(0.12) : accentColor.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: accentColor.withOpacity(0.4),
+            width: 1.2,
+          ),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.outfit(
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+            color: textCol,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWeeklyWrappedCard(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    Map<String, dynamic> data;
+    try {
+      data = json.decode(entry.content) as Map<String, dynamic>;
+    } catch (_) {
+      data = {};
+    }
+
+    final viewed = data['viewed'] as bool? ?? false;
+    final weekLabel = data['week_label'] as String? ?? 'Weekly Vibe';
+    final dominantMood = data['dominant_mood'] as String? ?? 'none';
+
+    const moodColors = {
+      'hype': Color(0xFFFFB000),
+      'chill': Color(0xFF8B5CF6),
+      'chaotic': Color(0xFF84CC16),
+      'blue': Color(0xFF3B82F6),
+      'stressed': Color(0xFFEF4444),
+      'grateful': Color(0xFFEC4899),
+      'none': Color(0xFF6B7280),
+    };
+
+    final accentColor = moodColors[dominantMood] ?? moodColors['none']!;
+    final bubbleRadius = BorderRadius.circular(24);
+
+    Widget cardContent = Container(
+      width: double.infinity,
+      constraints: const BoxConstraints(maxWidth: 500),
+      margin: const EdgeInsets.only(bottom: 20),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0F0A1A).withOpacity(0.7) : Colors.white.withOpacity(0.85),
+        borderRadius: bubbleRadius,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: bubbleRadius,
+        child: InkWell(
+          onTap: () {
+            HapticFeedback.mediumImpact();
+            onWeeklyWrappedTap?.call(entry);
+          },
+          borderRadius: bubbleRadius,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+            child: Row(
+              children: [
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: accentColor.withOpacity(0.12),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: accentColor.withOpacity(0.4),
+                      width: 1.5,
+                    ),
+                  ),
+                  alignment: Alignment.center,
+                  child: const Text(
+                    '📊',
+                    style: TextStyle(fontSize: 24),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'WEEKLY VIBE WRAPPED',
+                        style: GoogleFonts.outfit(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.5,
+                          color: accentColor,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Week of $weekLabel',
+                        style: GoogleFonts.outfit(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      if (!viewed)
+                        _PulsingPlayBadge(accentColor: accentColor)
+                      else
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.grey.withOpacity(0.2)),
+                          ),
+                          child: Text(
+                            'Review Recap ➡️',
+                            style: GoogleFonts.outfit(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? Colors.white54 : Colors.black54,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    cardContent = ClipRRect(
+      borderRadius: bubbleRadius,
+      child: CustomPaint(
+        painter: _GradientBorderPainter(
+          gradient: LinearGradient(
+            colors: !viewed
+                ? [accentColor, accentColor.withOpacity(0.1), const Color(0xFF8B5CF6)]
+                : [Colors.grey.withOpacity(0.3), Colors.grey.withOpacity(0.1)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          strokeWidth: !viewed ? 2.0 : 1.2,
+          radius: bubbleRadius,
+        ),
+        child: cardContent,
+      ),
+    );
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: cardContent,
+    );
   }
 }
 
@@ -830,5 +1106,104 @@ class _LockedTimeCapsulePlaceholderState extends State<_LockedTimeCapsulePlaceho
       'July', 'August', 'September', 'October', 'November', 'December'
     ];
     return '${months[timestamp.month - 1]} ${timestamp.day}, ${timestamp.year}';
+  }
+}
+
+class _GradientBorderPainter extends CustomPainter {
+  _GradientBorderPainter({
+    required this.gradient,
+    required this.strokeWidth,
+    required this.radius,
+  });
+
+  final Gradient gradient;
+  final double strokeWidth;
+  final BorderRadius radius;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final paint = Paint()
+      ..strokeWidth = strokeWidth
+      ..style = PaintingStyle.stroke
+      ..shader = gradient.createShader(rect);
+
+    final path = Path()
+      ..addRRect(RRect.fromRectAndCorners(
+        rect,
+        topLeft: radius.topLeft,
+        topRight: radius.topRight,
+        bottomRight: radius.bottomRight,
+        bottomLeft: radius.bottomLeft,
+      ));
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _GradientBorderPainter oldDelegate) => false;
+}
+
+class _PulsingPlayBadge extends StatefulWidget {
+  const _PulsingPlayBadge({required this.accentColor});
+  final Color accentColor;
+
+  @override
+  State<_PulsingPlayBadge> createState() => _PulsingPlayBadgeState();
+}
+
+class _PulsingPlayBadgeState extends State<_PulsingPlayBadge> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 1000))..repeat(reverse: true);
+    _animation = Tween<double>(begin: 0.65, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
+        return Opacity(
+          opacity: _animation.value,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: widget.accentColor.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: widget.accentColor.withOpacity(0.6),
+                width: 1.2,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Tap to Play ➡️',
+                  style: GoogleFonts.outfit(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: widget.accentColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 }

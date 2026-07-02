@@ -21,6 +21,8 @@ class EntryRecord {
     this.longitude,
     required this.mood,
     this.unlockAt,
+    this.isVent = false,
+    this.burnAt,
   });
 
   final int entryId;
@@ -34,6 +36,8 @@ class EntryRecord {
   final double? longitude;
   final String mood;
   final int? unlockAt;
+  final bool isVent;
+  final int? burnAt;
 }
 
 class EntryService {
@@ -62,6 +66,8 @@ class EntryService {
     double? longitude,
     String mood = 'none',
     int? unlockAt,
+    bool isVent = false,
+    int? burnAt,
   }) async {
     final normalizedContent = content.trim();
     if (normalizedContent.isEmpty && image == null && voiceNote == null && locationName == null) {
@@ -101,6 +107,8 @@ class EntryService {
               'longitude': longitude,
               'mood': mood,
               'unlock_at': unlockAt,
+              'is_vent': isVent ? 1 : 0,
+              'burn_at': burnAt,
             },
             createdAt: createdAt,
           ),
@@ -121,6 +129,8 @@ class EntryService {
               'longitude': longitude,
               'mood': mood,
               'unlock_at': unlockAt,
+              'is_vent': isVent ? 1 : 0,
+              'burn_at': burnAt,
             });
 
         for (final tag in tags) {
@@ -153,6 +163,8 @@ class EntryService {
           longitude: longitude,
           mood: mood,
           unlockAt: unlockAt,
+          isVent: isVent,
+          burnAt: burnAt,
         );
       });
     } catch (_) {
@@ -221,6 +233,8 @@ class EntryService {
         longitude: null,
         mood: mood,
         unlockAt: null,
+        isVent: false,
+        burnAt: null,
       );
     });
   }
@@ -252,6 +266,8 @@ class EntryService {
           'created_at',
           'mood',
           'unlock_at',
+          'is_vent',
+          'burn_at',
         ],
         where: 'entry_id = ?',
         whereArgs: <Object?>[entryId],
@@ -274,6 +290,8 @@ class EntryService {
       final existingMood = existing['mood'] as String? ?? 'none';
       final resolvedMood = mood ?? existingMood;
       final resolvedUnlockAt = unlockAt ?? existingUnlockAt;
+      final isVent = existing['is_vent'] == 1;
+      final burnAt = existing['burn_at'] as int?;
       final normalizedContent = content.trim();
 
       if (type == 'text' && normalizedContent.isEmpty) {
@@ -367,6 +385,8 @@ class EntryService {
         createdAt: createdAt,
         mood: resolvedMood,
         unlockAt: resolvedUnlockAt,
+        isVent: isVent,
+        burnAt: burnAt,
       );
     });
   }

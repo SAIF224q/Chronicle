@@ -76,6 +76,8 @@ class _RecordingEntryService extends EntryService {
     double? longitude,
     String mood = 'none',
     int? unlockAt,
+    bool isVent = false,
+    int? burnAt,
   }) async {
     createdContents.add(content);
     return onCreate(content, image);

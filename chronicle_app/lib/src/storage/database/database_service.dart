@@ -166,5 +166,15 @@ class DatabaseService {
         'ADD COLUMN unlock_at INTEGER',
       );
     }
+    if (oldVersion < 8) {
+      await database.execute(
+        'ALTER TABLE ${ChronicleSchema.entryIndexTable} '
+        'ADD COLUMN is_vent INTEGER NOT NULL DEFAULT 0 CHECK (is_vent IN (0, 1))',
+      );
+      await database.execute(
+        'ALTER TABLE ${ChronicleSchema.entryIndexTable} '
+        'ADD COLUMN burn_at INTEGER',
+      );
+    }
   }
 }

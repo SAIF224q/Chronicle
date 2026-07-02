@@ -21,6 +21,8 @@ class TimelineEntry {
     this.longitude,
     required this.mood,
     this.unlockAt,
+    this.isVent = false,
+    this.burnAt,
   });
 
   final int entryId;
@@ -37,6 +39,8 @@ class TimelineEntry {
   final double? longitude;
   final String mood;
   final int? unlockAt;
+  final bool isVent;
+  final int? burnAt;
 
   bool get isLocked => unlockAt != null && unlockAt! > DateTime.now().millisecondsSinceEpoch;
   bool get isBot => type == 'bot_prompt' || type == 'bot_response';
@@ -106,6 +110,8 @@ class TimelineService {
             longitude: row.longitude,
             mood: row.mood,
             unlockAt: row.unlockAt,
+            isVent: row.isVent,
+            burnAt: row.burnAt,
           );
         })
         .toList(growable: false);

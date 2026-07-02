@@ -14,6 +14,7 @@ This file tracks the status of features in the Chronicle application. AI agents 
 | **Conversational Vibe Check Bot** | `implemented` | 2026-06-29 | 2026-06-29 | [conversational_vibe_check_bot.md](file:///d:/Chronicle/features/conversational_vibe_check_bot.md) |
 | **Weekly Vibe Wrapped Recaps** | `implemented` | 2026-06-30 | 2026-06-30 | [weekly_vibe_wrapped_recaps.md](file:///d:/Chronicle/features/weekly_vibe_wrapped_recaps.md) |
 | **Retro Polaroid Scrapbook Board** | `implemented` | 2026-07-01 | 2026-07-01 | [retro_polaroid_scrapbook_board.md](file:///d:/Chronicle/features/retro_polaroid_scrapbook_board.md) |
+| **Self-Destructing Burn Notes** | `implemented` | 2026-07-02 | 2026-07-02 | [self_destructing_burn_notes.md](file:///d:/Chronicle/features/self_destructing_burn_notes.md) |
 
 ---
 

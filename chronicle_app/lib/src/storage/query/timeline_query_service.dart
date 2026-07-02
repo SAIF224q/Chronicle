@@ -15,6 +15,8 @@ class TimelineEntryRow {
     this.longitude,
     required this.mood,
     this.unlockAt,
+    this.isVent = false,
+    this.burnAt,
   });
 
   final int entryId;
@@ -30,6 +32,8 @@ class TimelineEntryRow {
   final double? longitude;
   final String mood;
   final int? unlockAt;
+  final bool isVent;
+  final int? burnAt;
 }
 
 class TimelineQueryService {
@@ -88,7 +92,7 @@ class TimelineQueryService {
     final entryRows = await _databaseService.rawQuery(
       '''
       SELECT entry_id, type, content, media_path, created_at,
-             updated_at, hidden, location_name, latitude, longitude, mood, unlock_at
+             updated_at, hidden, location_name, latitude, longitude, mood, unlock_at, is_vent, burn_at
       FROM entry_index
       WHERE $whereString
       ORDER BY $orderBy
@@ -133,6 +137,8 @@ class TimelineQueryService {
             longitude: row['longitude'] as double?,
             mood: row['mood'] as String? ?? 'none',
             unlockAt: row['unlock_at'] as int?,
+            isVent: row['is_vent'] == 1,
+            burnAt: row['burn_at'] as int?,
           );
         })
         .toList(growable: false);

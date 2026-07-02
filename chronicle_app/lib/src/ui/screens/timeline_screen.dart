@@ -20,6 +20,8 @@ import '../../application/services/vibe_check_service.dart';
 import '../../application/services/weekly_wrapped_service.dart';
 import 'weekly_wrapped_screen.dart';
 import 'scrapbook_board_screen.dart';
+import '../../application/services/ephemeral_purge_service.dart';
+import '../widgets/burn_bubble_wrapper.dart';
 
 class TimelineScreen extends StatefulWidget {
   const TimelineScreen({
@@ -39,7 +41,7 @@ class TimelineScreen extends StatefulWidget {
   State<TimelineScreen> createState() => _TimelineScreenState();
 }
 
-class _TimelineScreenState extends State<TimelineScreen> {
+class _TimelineScreenState extends State<TimelineScreen> with WidgetsBindingObserver {
   late Future<List<TimelineEntry>> _timelineFuture;
   String? _activeTagFilter;
   final Set<int> _revealedEntryIds = <int>{};
@@ -61,6 +63,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
   bool _isBotTyping = false;
   final VibeCheckService _vibeCheckService = VibeCheckService();
   late final WeeklyWrappedService _weeklyWrappedService;
+  late final EphemeralPurgeService _ephemeralPurgeService;
 
   @override
   void initState() {
@@ -72,6 +75,12 @@ class _TimelineScreenState extends State<TimelineScreen> {
       settingsService: widget.settingsService,
       mediaManager: widget.entryService.mediaManager,
     );
+    _ephemeralPurgeService = EphemeralPurgeService(
+      databaseService: widget.databaseService,
+      mediaManager: widget.entryService.mediaManager,
+    );
+    _ephemeralPurgeService.startPeriodicPurge();
+    WidgetsBinding.instance.addObserver(this);
     _loadTimeline();
     _loadStreakAndSettings();
   }
@@ -132,6 +141,55 @@ class _TimelineScreenState extends State<TimelineScreen> {
     _loadTimeline();
   }
 
+  void _showBurnContextMenu(
+    BuildContext context,
+    GlobalKey<BurnBubbleWrapperState> wrapperKey,
+    TimelineEntry entry,
+  ) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF09090B),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 8),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade800,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: const Icon(Icons.local_fire_department, color: Colors.orange),
+                title: const Text(
+                  'Combust Now 🔥',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+                subtitle: const Text(
+                  'Instantly burn and purge this note from history',
+                  style: TextStyle(color: Colors.grey),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  wrapperKey.currentState?.triggerCombustion();
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   void _clearCalendarDateFilter() {
     setState(() {
       _selectedCalendarDate = null;
@@ -152,9 +210,20 @@ class _TimelineScreenState extends State<TimelineScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _ephemeralPurgeService.stopPeriodicPurge();
+    _ephemeralPurgeService.purgeSessionVents();
     _searchController.dispose();
     _debounce?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
+      _ephemeralPurgeService.purgeSessionVents();
+      _loadTimeline();
+    }
   }
 
   void _loadTimeline({String? tag}) {
@@ -924,6 +993,24 @@ class _TimelineScreenState extends State<TimelineScreen> {
                               onWeeklyWrappedTap: _openWeeklyWrappedScreen,
                             );
 
+                            Widget entryWidget = item;
+                            if (entries[entryIndex].isVent) {
+                              final entry = entries[entryIndex];
+                              final wrapperKey = GlobalKey<BurnBubbleWrapperState>();
+                              entryWidget = GestureDetector(
+                                onLongPress: () => _showBurnContextMenu(context, wrapperKey, entry),
+                                child: BurnBubbleWrapper(
+                                  key: wrapperKey,
+                                  entry: entry,
+                                  onCombustionComplete: () async {
+                                    await _ephemeralPurgeService.combustNow(entry.entryId);
+                                    _loadTimeline();
+                                  },
+                                  child: item,
+                                ),
+                              );
+                            }
+
                             return TweenAnimationBuilder<double>(
                               duration: Duration(milliseconds: 350 + (index * 40).clamp(0, 300)),
                               tween: Tween<double>(begin: 0.0, end: 1.0),
@@ -937,7 +1024,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
                                   ),
                                 );
                               },
-                              child: item,
+                              child: entryWidget,
                             );
                           },
                         ),

@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../application/services/entry_service.dart';
@@ -27,7 +28,7 @@ class CreateEntryScreen extends StatefulWidget {
   State<CreateEntryScreen> createState() => _CreateEntryScreenState();
 }
 
-class _CreateEntryScreenState extends State<CreateEntryScreen> {
+class _CreateEntryScreenState extends State<CreateEntryScreen> with SingleTickerProviderStateMixin {
   final TextEditingController _contentController = TextEditingController();
   File? _selectedImage;
   File? _recordedVoiceFile;
@@ -38,18 +39,31 @@ class _CreateEntryScreenState extends State<CreateEntryScreen> {
   String _selectedMood = 'none';
   DateTime? _timeCapsuleUnlockDate;
 
+  bool _isVentMode = false;
+  int _selectedVentTimerMinutes = 5; // default 5 mins
+  late AnimationController _pulsateController;
+  late Animation<double> _pulsateAnimation;
+
   @override
   void initState() {
     super.initState();
     if (widget.initialMood != null) {
       _selectedMood = widget.initialMood!;
     }
+    _pulsateController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    );
+    _pulsateAnimation = Tween<double>(begin: 0.3, end: 1.0).animate(
+      CurvedAnimation(parent: _pulsateController, curve: Curves.easeInOut),
+    );
   }
 
   @override
   void dispose() {
     _contentController.dispose();
     _cleanupTempAudio();
+    _pulsateController.dispose();
     super.dispose();
   }
 
@@ -86,6 +100,15 @@ class _CreateEntryScreenState extends State<CreateEntryScreen> {
     });
 
     try {
+      int? burnAt;
+      if (_isVentMode) {
+        if (_selectedVentTimerMinutes > 0) {
+          burnAt = DateTime.now().millisecondsSinceEpoch + _selectedVentTimerMinutes * 60 * 1000;
+        } else {
+          burnAt = null; // Session exit
+        }
+      }
+
       await widget.entryService.createEntry(
         content: _contentController.text,
         image: _selectedImage,
@@ -95,6 +118,8 @@ class _CreateEntryScreenState extends State<CreateEntryScreen> {
         longitude: _longitude,
         mood: _selectedMood,
         unlockAt: _timeCapsuleUnlockDate?.millisecondsSinceEpoch,
+        isVent: _isVentMode,
+        burnAt: burnAt,
       );
       if (!mounted) {
         return;
@@ -182,16 +207,38 @@ class _CreateEntryScreenState extends State<CreateEntryScreen> {
                       const SizedBox(height: 12),
                     ],
                     // Content editor Card
-                    Container(
-                      decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF1A1715) : colorScheme.surface,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: isDark ? const Color(0xFF2C2825) : colorScheme.outlineVariant.withOpacity(0.8),
-                          width: 1.2,
-                        ),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    AnimatedBuilder(
+                      animation: _pulsateAnimation,
+                      builder: (context, child) {
+                        final glow = _isVentMode
+                            ? [
+                                BoxShadow(
+                                  color: const Color(0xFFEF4444).withOpacity(0.3 * _pulsateAnimation.value),
+                                  blurRadius: 8.0,
+                                  spreadRadius: 1.0,
+                                )
+                              ]
+                            : const <BoxShadow>[];
+                        final border = _isVentMode
+                            ? Border.all(
+                                color: const Color(0xFFEF4444).withOpacity(0.4 + 0.4 * _pulsateAnimation.value),
+                                width: 1.5,
+                              )
+                            : Border.all(
+                                color: isDark ? const Color(0xFF2C2825) : colorScheme.outlineVariant.withOpacity(0.8),
+                                width: 1.2,
+                              );
+                        return Container(
+                          decoration: BoxDecoration(
+                            color: isDark ? const Color(0xFF1A1715) : colorScheme.surface,
+                            borderRadius: BorderRadius.circular(20),
+                            border: border,
+                            boxShadow: glow,
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                          child: child,
+                        );
+                      },
                       child: TextField(
                         controller: _contentController,
                         maxLines: 8,
@@ -202,9 +249,13 @@ class _CreateEntryScreenState extends State<CreateEntryScreen> {
                           height: 1.4,
                         ),
                         decoration: InputDecoration(
-                          hintText: 'Write a thought, memory, or note...',
+                          hintText: _isVentMode
+                              ? 'Spill the tea / Vent it out... 🌋 (Ephemeral)'
+                              : 'Write a thought, memory, or note...',
                           hintStyle: TextStyle(
-                            color: colorScheme.onSurfaceVariant.withOpacity(0.4),
+                            color: _isVentMode
+                                ? const Color(0xFFEF4444).withOpacity(0.5)
+                                : colorScheme.onSurfaceVariant.withOpacity(0.4),
                           ),
                           border: InputBorder.none,
                           enabledBorder: InputBorder.none,
@@ -324,11 +375,85 @@ class _CreateEntryScreenState extends State<CreateEntryScreen> {
                   ],
                 ),
               ),
+              if (_isVentMode) _buildVentTimerSelector(context),
               // Attachment toolbar at the bottom
               _buildAttachmentToolbar(context),
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildVentTimerSelector(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    final timers = [
+      {'label': '5 mins', 'val': 5},
+      {'label': '1 hour', 'val': 60},
+      {'label': '24 hours', 'val': 1440},
+      {'label': 'On Exit', 'val': -1},
+    ];
+
+    return Container(
+      height: 48,
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1C1816) : Colors.red.shade50.withOpacity(0.5),
+        border: Border(
+          top: BorderSide(
+            color: isDark ? const Color(0xFF2C2825) : Colors.red.shade100,
+            width: 1.0,
+          ),
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: timers.map((t) {
+          final label = t['label']! as String;
+          final val = t['val']! as int;
+          final isSelected = _selectedVentTimerMinutes == val;
+          
+          return Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 8.0),
+              child: GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _selectedVentTimerMinutes = val;
+                  });
+                  HapticFeedback.lightImpact();
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? (isDark ? const Color(0xFF450A0A) : Colors.red.shade100)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isSelected
+                          ? Colors.red.withOpacity(0.5)
+                          : Colors.transparent,
+                    ),
+                  ),
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 12.0,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      color: isSelected
+                          ? (isDark ? Colors.red.shade200 : Colors.red.shade900)
+                          : (isDark ? Colors.grey : Colors.grey.shade700),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }
@@ -353,6 +478,38 @@ class _CreateEntryScreenState extends State<CreateEntryScreen> {
       ),
       child: Row(
         children: [
+          IconButton(
+            onPressed: () {
+              setState(() {
+                _isVentMode = !_isVentMode;
+                if (_isVentMode) {
+                  _pulsateController.repeat(reverse: true);
+                  _timeCapsuleUnlockDate = null;
+                } else {
+                  _pulsateController.stop();
+                }
+              });
+              HapticFeedback.lightImpact();
+            },
+            icon: _isVentMode
+                ? ShaderMask(
+                    shaderCallback: (bounds) => const LinearGradient(
+                      colors: [Colors.orange, Colors.red],
+                    ).createShader(bounds),
+                    child: const Icon(
+                      Icons.whatshot,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                  )
+                : const Icon(
+                    Icons.whatshot_outlined,
+                    color: Colors.grey,
+                    size: 24,
+                  ),
+            tooltip: 'Toggle Vent Mode',
+          ),
+          const SizedBox(width: 8),
           IconButton(
             onPressed: () {
               Navigator.of(context).pop('vibe_check');
@@ -484,6 +641,10 @@ class _CreateEntryScreenState extends State<CreateEntryScreen> {
     if (pickedDate != null) {
       setState(() {
         _timeCapsuleUnlockDate = pickedDate;
+        if (_isVentMode) {
+          _isVentMode = false;
+          _pulsateController.stop();
+        }
       });
     }
   }

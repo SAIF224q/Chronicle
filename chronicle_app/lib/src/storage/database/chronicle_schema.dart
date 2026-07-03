@@ -2,7 +2,7 @@ class ChronicleSchema {
   const ChronicleSchema._();
 
   static const String databaseName = 'chronicle.db';
-  static const int databaseVersion = 8;
+  static const int databaseVersion = 9;
 
   static const String eventsTable = 'events';
   static const String entryIndexTable = 'entry_index';
@@ -38,7 +38,13 @@ class ChronicleSchema {
       transcript TEXT,
       unlock_at INTEGER,
       is_vent INTEGER NOT NULL DEFAULT 0 CHECK (is_vent IN (0, 1)),
-      burn_at INTEGER
+      burn_at INTEGER,
+      track_id TEXT,
+      track_title TEXT,
+      track_artist TEXT,
+      track_artwork_url TEXT,
+      spotify_url TEXT,
+      audio_preview_url TEXT
     )
     ''',
     '''

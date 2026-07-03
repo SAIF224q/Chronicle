@@ -8,6 +8,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../application/services/timeline_service.dart';
+import '../screens/music_search_bottom_sheet.dart';
+import 'vinyl_player_widget.dart';
 import 'audio_player_widget.dart';
 import 'confetti_wrapper.dart';
 import 'dashed_border_painter.dart';
@@ -26,6 +28,7 @@ class TimelineItem extends StatelessWidget {
     this.isLastBotPrompt = false,
     this.onChoiceSelected,
     this.onWeeklyWrappedTap,
+    this.onRemoveSoundtrackTap,
   });
 
   final TimelineEntry entry;
@@ -38,6 +41,7 @@ class TimelineItem extends StatelessWidget {
   final bool isLastBotPrompt;
   final ValueChanged<String>? onChoiceSelected;
   final ValueChanged<TimelineEntry>? onWeeklyWrappedTap;
+  final VoidCallback? onRemoveSoundtrackTap;
 
   @override
   Widget build(BuildContext context) {
@@ -47,9 +51,21 @@ class TimelineItem extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final isUnlockedTimeCapsule = entry.unlockAt != null && !entry.isLocked;
-    final textColor = isUnlockedTimeCapsule ? Colors.white : _getTextColor(context, entry.mood);
-    final secondaryTextColor = isUnlockedTimeCapsule ? Colors.white70 : _getSecondaryTextColor(context, entry.mood);
-    final showBadge = entry.mood != 'none' && !entry.isLocked && !entry.isBot;
+
+    final pColor = entry.hasSoundtrack ? _getTrackColor(entry, true) : null;
+    final isTrackLight = pColor != null && pColor.computeLuminance() > 0.45;
+
+    final textColor = isUnlockedTimeCapsule
+        ? Colors.white
+        : entry.hasSoundtrack
+            ? (isTrackLight ? const Color(0xFF0F0B1E) : Colors.white)
+            : _getTextColor(context, entry.mood);
+    final secondaryTextColor = isUnlockedTimeCapsule
+        ? Colors.white70
+        : entry.hasSoundtrack
+            ? (isTrackLight ? Colors.black54 : Colors.white70)
+            : _getSecondaryTextColor(context, entry.mood);
+    final showBadge = entry.mood != 'none' && !entry.isLocked && !entry.isBot && !entry.hasSoundtrack;
 
     Widget bubbleContent = Container(
       constraints: const BoxConstraints(maxWidth: 500),
@@ -125,6 +141,19 @@ class TimelineItem extends StatelessWidget {
                     fontStyle: entry.isBot ? FontStyle.italic : FontStyle.normal,
                     fontFamily: entry.isBot ? GoogleFonts.outfit().fontFamily : null,
                   ),
+                ),
+              ],
+              if (entry.hasSoundtrack) ...<Widget>[
+                VinylPlayerWidget(
+                  trackId: entry.trackId!,
+                  trackTitle: entry.trackTitle!,
+                  trackArtist: entry.trackArtist!,
+                  trackArtworkUrl: entry.trackArtworkUrl!,
+                  spotifyUrl: entry.spotifyUrl!,
+                  audioPreviewUrl: entry.audioPreviewUrl!,
+                  primaryColor: _getTrackColor(entry, true),
+                  secondaryColor: _getTrackColor(entry, false),
+                  onSoundtrackRemoved: onRemoveSoundtrackTap ?? () {},
                 ),
               ],
               if (entry.mediaFile != null) ...<Widget>[
@@ -442,6 +471,27 @@ class TimelineItem extends StatelessWidget {
       return BoxDecoration(
         color: isDark ? Colors.white.withOpacity(0.04) : Colors.black.withOpacity(0.02),
         borderRadius: bubbleRadius,
+      );
+    }
+
+    if (entry.hasSoundtrack) {
+      final pColor = _getTrackColor(entry, true);
+      final sColor = _getTrackColor(entry, false);
+      return BoxDecoration(
+        gradient: LinearGradient(
+          colors: [pColor, sColor],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: bubbleRadius,
+        boxShadow: [
+          BoxShadow(
+            color: pColor.withOpacity(0.3),
+            blurRadius: 10,
+            spreadRadius: 0.5,
+            offset: const Offset(0, 3),
+          )
+        ],
       );
     }
 
@@ -831,6 +881,24 @@ class TimelineItem extends StatelessWidget {
       alignment: Alignment.centerLeft,
       child: cardContent,
     );
+  }
+
+  Color _getTrackColor(TimelineEntry entry, bool isPrimary) {
+    if (entry.trackArtworkUrl == null) {
+      return isPrimary ? Colors.grey.shade900 : Colors.grey.shade800;
+    }
+    if (entry.trackArtworkUrl!.startsWith('custom_color:')) {
+      final hexStr = entry.trackArtworkUrl!.split(':').last;
+      final stickerColor = Color(int.parse('0xFF${hexStr.replaceFirst('#', '')}'));
+      return isPrimary
+          ? stickerColor.withOpacity(0.4)
+          : const Color(0xFF0E0E15);
+    }
+    final matched = mockTracks.firstWhere(
+      (t) => t.id == entry.trackId,
+      orElse: () => mockTracks.first,
+    );
+    return isPrimary ? matched.primaryColor : matched.secondaryColor;
   }
 }
 

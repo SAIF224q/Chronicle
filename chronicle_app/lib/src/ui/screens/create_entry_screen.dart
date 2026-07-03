@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
+import 'music_search_bottom_sheet.dart';
 import '../../application/services/entry_service.dart';
 import '../../application/services/location_service.dart';
 import '../widgets/audio_recorder_widget.dart';
@@ -38,6 +39,13 @@ class _CreateEntryScreenState extends State<CreateEntryScreen> with SingleTicker
   double? _longitude;
   String _selectedMood = 'none';
   DateTime? _timeCapsuleUnlockDate;
+
+  String? _trackId;
+  String? _trackTitle;
+  String? _trackArtist;
+  String? _trackArtworkUrl;
+  String? _spotifyUrl;
+  String? _audioPreviewUrl;
 
   bool _isVentMode = false;
   int _selectedVentTimerMinutes = 5; // default 5 mins
@@ -120,6 +128,12 @@ class _CreateEntryScreenState extends State<CreateEntryScreen> with SingleTicker
         unlockAt: _timeCapsuleUnlockDate?.millisecondsSinceEpoch,
         isVent: _isVentMode,
         burnAt: burnAt,
+        trackId: _trackId,
+        trackTitle: _trackTitle,
+        trackArtist: _trackArtist,
+        trackArtworkUrl: _trackArtworkUrl,
+        spotifyUrl: _spotifyUrl,
+        audioPreviewUrl: _audioPreviewUrl,
       );
       if (!mounted) {
         return;
@@ -236,7 +250,52 @@ class _CreateEntryScreenState extends State<CreateEntryScreen> with SingleTicker
                             boxShadow: glow,
                           ),
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                          child: child,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (_trackTitle != null) ...[
+                                const SizedBox(height: 12),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.tealAccent.withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(color: Colors.tealAccent.withOpacity(0.4)),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.music_note, color: Colors.tealAccent, size: 14),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        '🎵 "$_trackTitle" - $_trackArtist',
+                                        style: const TextStyle(
+                                          color: Colors.tealAccent,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      GestureDetector(
+                                        onTap: () {
+                                          setState(() {
+                                            _trackId = null;
+                                            _trackTitle = null;
+                                            _trackArtist = null;
+                                            _trackArtworkUrl = null;
+                                            _spotifyUrl = null;
+                                            _audioPreviewUrl = null;
+                                          });
+                                        },
+                                        child: const Icon(Icons.cancel_rounded, color: Colors.tealAccent, size: 16),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                              child!,
+                            ],
+                          ),
                         );
                       },
                       child: TextField(
@@ -553,6 +612,16 @@ class _CreateEntryScreenState extends State<CreateEntryScreen> with SingleTicker
             ),
             tooltip: 'Seal Time Capsule',
           ),
+          const SizedBox(width: 8),
+          IconButton(
+            onPressed: _isSaving ? null : _showMusicSearchBottomSheet,
+            icon: Icon(
+              _trackTitle == null ? Icons.music_note_outlined : Icons.music_note,
+              color: _trackTitle == null ? colorScheme.primary : Colors.tealAccent,
+              size: 24,
+            ),
+            tooltip: 'Attach Soundtrack',
+          ),
           const Spacer(),
           if (_selectedImage != null || _locationName != null || _recordedVoiceFile != null)
             Container(
@@ -645,6 +714,28 @@ class _CreateEntryScreenState extends State<CreateEntryScreen> with SingleTicker
           _isVentMode = false;
           _pulsateController.stop();
         }
+      });
+    }
+  }
+
+  Future<void> _showMusicSearchBottomSheet() async {
+    final track = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return const MusicSearchBottomSheet();
+      },
+    );
+
+    if (track != null) {
+      setState(() {
+        _trackId = track['track_id'] as String?;
+        _trackTitle = track['track_title'] as String?;
+        _trackArtist = track['track_artist'] as String?;
+        _trackArtworkUrl = track['track_artwork_url'] as String?;
+        _spotifyUrl = track['spotify_url'] as String?;
+        _audioPreviewUrl = track['audio_preview_url'] as String?;
       });
     }
   }

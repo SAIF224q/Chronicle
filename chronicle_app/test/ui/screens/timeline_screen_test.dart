@@ -78,6 +78,12 @@ class _RecordingEntryService extends EntryService {
     int? unlockAt,
     bool isVent = false,
     int? burnAt,
+    String? trackId,
+    String? trackTitle,
+    String? trackArtist,
+    String? trackArtworkUrl,
+    String? spotifyUrl,
+    String? audioPreviewUrl,
   }) async {
     createdContents.add(content);
     return onCreate(content, image);

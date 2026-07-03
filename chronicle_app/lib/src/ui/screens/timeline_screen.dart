@@ -991,6 +991,14 @@ class _TimelineScreenState extends State<TimelineScreen> with WidgetsBindingObse
                               isLastBotPrompt: isNewestEntry && entries[entryIndex].type == 'bot_prompt',
                               onChoiceSelected: _handleBotChoiceSelected,
                               onWeeklyWrappedTap: _openWeeklyWrappedScreen,
+                              onRemoveSoundtrackTap: () async {
+                                await widget.entryService.editEntry(
+                                  entryId: entries[entryIndex].entryId,
+                                  content: entries[entryIndex].content,
+                                  clearSoundtrack: true,
+                                );
+                                _loadTimeline();
+                              },
                             );
 
                             Widget entryWidget = item;

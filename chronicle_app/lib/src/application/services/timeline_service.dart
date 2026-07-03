@@ -23,6 +23,12 @@ class TimelineEntry {
     this.unlockAt,
     this.isVent = false,
     this.burnAt,
+    this.trackId,
+    this.trackTitle,
+    this.trackArtist,
+    this.trackArtworkUrl,
+    this.spotifyUrl,
+    this.audioPreviewUrl,
   });
 
   final int entryId;
@@ -41,7 +47,14 @@ class TimelineEntry {
   final int? unlockAt;
   final bool isVent;
   final int? burnAt;
+  final String? trackId;
+  final String? trackTitle;
+  final String? trackArtist;
+  final String? trackArtworkUrl;
+  final String? spotifyUrl;
+  final String? audioPreviewUrl;
 
+  bool get hasSoundtrack => trackTitle != null && trackTitle!.isNotEmpty;
   bool get isLocked => unlockAt != null && unlockAt! > DateTime.now().millisecondsSinceEpoch;
   bool get isBot => type == 'bot_prompt' || type == 'bot_response';
 }
@@ -112,6 +125,12 @@ class TimelineService {
             unlockAt: row.unlockAt,
             isVent: row.isVent,
             burnAt: row.burnAt,
+            trackId: row.trackId,
+            trackTitle: row.trackTitle,
+            trackArtist: row.trackArtist,
+            trackArtworkUrl: row.trackArtworkUrl,
+            spotifyUrl: row.spotifyUrl,
+            audioPreviewUrl: row.audioPreviewUrl,
           );
         })
         .toList(growable: false);

@@ -17,6 +17,12 @@ class TimelineEntryRow {
     this.unlockAt,
     this.isVent = false,
     this.burnAt,
+    this.trackId,
+    this.trackTitle,
+    this.trackArtist,
+    this.trackArtworkUrl,
+    this.spotifyUrl,
+    this.audioPreviewUrl,
   });
 
   final int entryId;
@@ -34,6 +40,12 @@ class TimelineEntryRow {
   final int? unlockAt;
   final bool isVent;
   final int? burnAt;
+  final String? trackId;
+  final String? trackTitle;
+  final String? trackArtist;
+  final String? trackArtworkUrl;
+  final String? spotifyUrl;
+  final String? audioPreviewUrl;
 }
 
 class TimelineQueryService {
@@ -64,9 +76,11 @@ class TimelineQueryService {
 
     if (searchQuery != null && searchQuery.trim().isNotEmpty) {
       whereClauses.add(
-        '((content LIKE ?) AND (unlock_at IS NULL OR unlock_at <= ?))',
+        '((content LIKE ? OR track_title LIKE ? OR track_artist LIKE ?) AND (unlock_at IS NULL OR unlock_at <= ?))',
       );
       final bindQuery = '%${searchQuery.trim()}%';
+      whereArgs.add(bindQuery);
+      whereArgs.add(bindQuery);
       whereArgs.add(bindQuery);
       whereArgs.add(DateTime.now().millisecondsSinceEpoch);
     }
@@ -92,7 +106,8 @@ class TimelineQueryService {
     final entryRows = await _databaseService.rawQuery(
       '''
       SELECT entry_id, type, content, media_path, created_at,
-             updated_at, hidden, location_name, latitude, longitude, mood, unlock_at, is_vent, burn_at
+             updated_at, hidden, location_name, latitude, longitude, mood, unlock_at, is_vent, burn_at,
+             track_id, track_title, track_artist, track_artwork_url, spotify_url, audio_preview_url
       FROM entry_index
       WHERE $whereString
       ORDER BY $orderBy
@@ -139,6 +154,12 @@ class TimelineQueryService {
             unlockAt: row['unlock_at'] as int?,
             isVent: row['is_vent'] == 1,
             burnAt: row['burn_at'] as int?,
+            trackId: row['track_id'] as String?,
+            trackTitle: row['track_title'] as String?,
+            trackArtist: row['track_artist'] as String?,
+            trackArtworkUrl: row['track_artwork_url'] as String?,
+            spotifyUrl: row['spotify_url'] as String?,
+            audioPreviewUrl: row['audio_preview_url'] as String?,
           );
         })
         .toList(growable: false);

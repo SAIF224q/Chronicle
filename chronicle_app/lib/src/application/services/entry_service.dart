@@ -23,6 +23,12 @@ class EntryRecord {
     this.unlockAt,
     this.isVent = false,
     this.burnAt,
+    this.trackId,
+    this.trackTitle,
+    this.trackArtist,
+    this.trackArtworkUrl,
+    this.spotify_url,
+    this.audio_preview_url,
   });
 
   final int entryId;
@@ -38,6 +44,12 @@ class EntryRecord {
   final int? unlockAt;
   final bool isVent;
   final int? burnAt;
+  final String? trackId;
+  final String? trackTitle;
+  final String? trackArtist;
+  final String? trackArtworkUrl;
+  final String? spotify_url;
+  final String? audio_preview_url;
 }
 
 class EntryService {
@@ -68,6 +80,12 @@ class EntryService {
     int? unlockAt,
     bool isVent = false,
     int? burnAt,
+    String? trackId,
+    String? trackTitle,
+    String? trackArtist,
+    String? trackArtworkUrl,
+    String? spotifyUrl,
+    String? audioPreviewUrl,
   }) async {
     final normalizedContent = content.trim();
     if (normalizedContent.isEmpty && image == null && voiceNote == null && locationName == null) {
@@ -109,6 +127,12 @@ class EntryService {
               'unlock_at': unlockAt,
               'is_vent': isVent ? 1 : 0,
               'burn_at': burnAt,
+              'track_id': trackId,
+              'track_title': trackTitle,
+              'track_artist': trackArtist,
+              'track_artwork_url': trackArtworkUrl,
+              'spotify_url': spotifyUrl,
+              'audio_preview_url': audioPreviewUrl,
             },
             createdAt: createdAt,
           ),
@@ -131,6 +155,12 @@ class EntryService {
               'unlock_at': unlockAt,
               'is_vent': isVent ? 1 : 0,
               'burn_at': burnAt,
+              'track_id': trackId,
+              'track_title': trackTitle,
+              'track_artist': trackArtist,
+              'track_artwork_url': trackArtworkUrl,
+              'spotify_url': spotifyUrl,
+              'audio_preview_url': audioPreviewUrl,
             });
 
         for (final tag in tags) {
@@ -165,6 +195,12 @@ class EntryService {
           unlockAt: unlockAt,
           isVent: isVent,
           burnAt: burnAt,
+          trackId: trackId,
+          trackTitle: trackTitle,
+          trackArtist: trackArtist,
+          trackArtworkUrl: trackArtworkUrl,
+          spotify_url: spotifyUrl,
+          audio_preview_url: audioPreviewUrl,
         );
       });
     } catch (_) {
@@ -244,6 +280,13 @@ class EntryService {
     required String content,
     String? mood,
     int? unlockAt,
+    String? trackId,
+    String? trackTitle,
+    String? trackArtist,
+    String? trackArtworkUrl,
+    String? spotifyUrl,
+    String? audioPreviewUrl,
+    bool clearSoundtrack = false,
   }) async {
     if (entryId <= 0) {
       throw ArgumentError.value(
@@ -268,6 +311,12 @@ class EntryService {
           'unlock_at',
           'is_vent',
           'burn_at',
+          'track_id',
+          'track_title',
+          'track_artist',
+          'track_artwork_url',
+          'spotify_url',
+          'audio_preview_url',
         ],
         where: 'entry_id = ?',
         whereArgs: <Object?>[entryId],
@@ -292,6 +341,12 @@ class EntryService {
       final resolvedUnlockAt = unlockAt ?? existingUnlockAt;
       final isVent = existing['is_vent'] == 1;
       final burnAt = existing['burn_at'] as int?;
+      final resolvedTrackId = clearSoundtrack ? null : (trackId ?? existing['track_id'] as String?);
+      final resolvedTrackTitle = clearSoundtrack ? null : (trackTitle ?? existing['track_title'] as String?);
+      final resolvedTrackArtist = clearSoundtrack ? null : (trackArtist ?? existing['track_artist'] as String?);
+      final resolvedTrackArtworkUrl = clearSoundtrack ? null : (trackArtworkUrl ?? existing['track_artwork_url'] as String?);
+      final resolvedSpotifyUrl = clearSoundtrack ? null : (spotifyUrl ?? existing['spotify_url'] as String?);
+      final resolvedAudioPreviewUrl = clearSoundtrack ? null : (audioPreviewUrl ?? existing['audio_preview_url'] as String?);
       final normalizedContent = content.trim();
 
       if (type == 'text' && normalizedContent.isEmpty) {
@@ -306,6 +361,12 @@ class EntryService {
             'content': normalizedContent,
             if (mood != null) 'mood': mood,
             if (unlockAt != null) 'unlock_at': unlockAt,
+            if (trackId != null || clearSoundtrack) 'track_id': resolvedTrackId,
+            if (trackTitle != null || clearSoundtrack) 'track_title': resolvedTrackTitle,
+            if (trackArtist != null || clearSoundtrack) 'track_artist': resolvedTrackArtist,
+            if (trackArtworkUrl != null || clearSoundtrack) 'track_artwork_url': resolvedTrackArtworkUrl,
+            if (spotifyUrl != null || clearSoundtrack) 'spotify_url': resolvedSpotifyUrl,
+            if (audioPreviewUrl != null || clearSoundtrack) 'audio_preview_url': resolvedAudioPreviewUrl,
           },
           createdAt: editedAt,
         ),
@@ -319,6 +380,12 @@ class EntryService {
           'updated_at': editedAt,
           if (mood != null) 'mood': mood,
           if (unlockAt != null) 'unlock_at': unlockAt,
+          if (trackId != null || clearSoundtrack) 'track_id': resolvedTrackId,
+          if (trackTitle != null || clearSoundtrack) 'track_title': resolvedTrackTitle,
+          if (trackArtist != null || clearSoundtrack) 'track_artist': resolvedTrackArtist,
+          if (trackArtworkUrl != null || clearSoundtrack) 'track_artwork_url': resolvedTrackArtworkUrl,
+          if (spotifyUrl != null || clearSoundtrack) 'spotify_url': resolvedSpotifyUrl,
+          if (audioPreviewUrl != null || clearSoundtrack) 'audio_preview_url': resolvedAudioPreviewUrl,
         },
         where: 'entry_id = ?',
         whereArgs: <Object?>[entryId],
@@ -387,6 +454,12 @@ class EntryService {
         unlockAt: resolvedUnlockAt,
         isVent: isVent,
         burnAt: burnAt,
+        trackId: resolvedTrackId,
+        trackTitle: resolvedTrackTitle,
+        trackArtist: resolvedTrackArtist,
+        trackArtworkUrl: resolvedTrackArtworkUrl,
+        spotify_url: resolvedSpotifyUrl,
+        audio_preview_url: resolvedAudioPreviewUrl,
       );
     });
   }

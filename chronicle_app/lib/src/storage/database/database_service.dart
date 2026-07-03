@@ -176,5 +176,25 @@ class DatabaseService {
         'ADD COLUMN burn_at INTEGER',
       );
     }
+    if (oldVersion < 9) {
+      await database.execute(
+        'ALTER TABLE ${ChronicleSchema.entryIndexTable} ADD COLUMN track_id TEXT',
+      );
+      await database.execute(
+        'ALTER TABLE ${ChronicleSchema.entryIndexTable} ADD COLUMN track_title TEXT',
+      );
+      await database.execute(
+        'ALTER TABLE ${ChronicleSchema.entryIndexTable} ADD COLUMN track_artist TEXT',
+      );
+      await database.execute(
+        'ALTER TABLE ${ChronicleSchema.entryIndexTable} ADD COLUMN track_artwork_url TEXT',
+      );
+      await database.execute(
+        'ALTER TABLE ${ChronicleSchema.entryIndexTable} ADD COLUMN spotify_url TEXT',
+      );
+      await database.execute(
+        'ALTER TABLE ${ChronicleSchema.entryIndexTable} ADD COLUMN audio_preview_url TEXT',
+      );
+    }
   }
 }

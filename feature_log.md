@@ -15,6 +15,7 @@ This file tracks the status of features in the Chronicle application. AI agents 
 | **Weekly Vibe Wrapped Recaps** | `implemented` | 2026-06-30 | 2026-06-30 | [weekly_vibe_wrapped_recaps.md](file:///d:/Chronicle/features/weekly_vibe_wrapped_recaps.md) |
 | **Retro Polaroid Scrapbook Board** | `implemented` | 2026-07-01 | 2026-07-01 | [retro_polaroid_scrapbook_board.md](file:///d:/Chronicle/features/retro_polaroid_scrapbook_board.md) |
 | **Self-Destructing Burn Notes** | `implemented` | 2026-07-02 | 2026-07-02 | [self_destructing_burn_notes.md](file:///d:/Chronicle/features/self_destructing_burn_notes.md) |
+| **Aesthetic Soundtrack Attachment** | `implemented` | 2026-07-03 | 2026-07-03 | [aesthetic_soundtrack_attachment.md](file:///d:/Chronicle/features/aesthetic_soundtrack_attachment.md) |
 
 ---
 
